@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Calculation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Hide number input arrows */
+        /* Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        /* Custom class for selected button state */
+        .option-button.selected {
+            background-color: #10B981; /* Tailwind green-500 */
+            color: white;
+            border-color: #059669; /* Tailwind green-600 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Apple Touch Icon (for iOS home screen) -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Time Calc">
+    <meta name="theme-color" content="#bbf7d0"> <!-- Matches a light green/teal -->
+
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-200 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
+        <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-6">Time Calculation</h1>
+
+        <div class="space-y-6">
+            <!-- Current Time Display -->
+            <div class="bg-green-50 p-4 rounded-xl border border-green-100 shadow-sm text-center">
+                <label class="block text-lg font-semibold text-green-700 mb-2">Current Time:</label>
+                <p id="currentTimeDisplay" class="text-3xl font-bold text-green-800"></p>
+            </div>
+
+            <!-- Option Buttons -->
+            <div class="flex justify-center space-x-2 mb-4">
+                <button class="option-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-option="A">A</button>
+                <button class="option-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-option="B">B</button>
+                <button class="option-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-option="C">C</button>
+                <button class="option-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-option="D">D</button>
+            </div>
+
+            <!-- Hours and Minutes to Subtract from 45:00 Inputs -->
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 shadow-sm">
+                <label class="block text-lg font-semibold text-blue-700 mb-3">Subtract from 45 hours</label>
+                <div class="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                    <input type="number" id="hoursToSubtract" placeholder="Hours" min="0" value="0"
+                           class="w-full sm:w-1/2 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
+                    <span class="text-2xl text-blue-500">h</span>
+                    <input type="number" id="minutesToSubtract" placeholder="Minutes" min="0" max="59" value="0"
+                           class="w-full sm:w-1/2 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
+                    <span class="text-2xl text-blue-500">m</span>
+                </div>
+            </div>
+
+            <!-- Calculate Button -->
+            <button id="calculateBtn"
+                    class="w-full bg-gradient-to-r from-green-500 to-teal-600 text-white py-3 rounded-xl text-xl font-bold hover:from-green-600 hover:to-teal-700 transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95">
+                Calculate Resulting Time
+            </button>
+
+            <!-- Error Message for input validation -->
+            <div id="inputErrorBox" class="bg-red-100 p-3 rounded-xl border border-red-200 text-red-700 text-center font-medium hidden">
+                Please enter valid numbers for hours and minutes.
+            </div>
+
+            <!-- Error Message for duplicate option -->
+            <div id="duplicateErrorBox" class="bg-red-100 p-3 rounded-xl border border-red-200 text-red-700 text-center font-medium hidden">
+                This option has already been calculated. Please click "Reset History" to calculate it again.
+            </div>
+
+            <!-- Calculation History -->
+            <div id="historyContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Calculation History</h2>
+                <div id="calculationHistoryList" class="space-y-3">
+                    <!-- History items will be appended here -->
+                    <p class="text-gray-500 text-center" id="noHistoryMessage">No calculations yet.</p>
+                </div>
+                <!-- Reset Button for History -->
+                <button id="resetHistoryBtn"
+                        class="w-full mt-4 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
+                    Reset History
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get references to input fields and display elements
+            const hoursToSubtractInput = document.getElementById('hoursToSubtract');
+            const minutesToSubtractInput = document.getElementById('minutesToSubtract');
+            const optionButtons = document.querySelectorAll('.option-button'); // Get all option buttons
+            const calculateBtn = document.getElementById('calculateBtn');
+            const inputErrorBox = document.getElementById('inputErrorBox');
+            const duplicateErrorBox = document.getElementById('duplicateErrorBox');
+            const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+            const calculationHistoryList = document.getElementById('calculationHistoryList');
+            const resetHistoryBtn = document.getElementById('resetHistoryBtn');
+            const noHistoryMessage = document.getElementById('noHistoryMessage');
+
+            // Array to store calculation history, loaded from localStorage
+            let calculationHistory = JSON.parse(localStorage.getItem('timeCalcHistory')) || [];
+            let selectedOption = 'A'; // Default selected option
+
+            /**
+             * Updates the display with the current date and time.
+             */
+            const updateCurrentTimeDisplay = () => {
+                const now = new Date();
+                const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                currentTimeDisplay.textContent = now.toLocaleDateString('en-US', options);
+            };
+
+            // Update current time every second
+            setInterval(updateCurrentTimeDisplay, 1000);
+            updateCurrentTimeDisplay(); // Call once immediately to show current time on load
+
+            /**
+             * Validates an input field to ensure it contains a non-negative number within its min/max range (if max is defined).
+             * @param {HTMLInputElement} inputElement - The input element to validate.
+             * @returns {boolean} True if the input is valid, false otherwise.
+             */
+            const validateInput = (inputElement) => {
+                const value = parseInt(inputElement.value, 10);
+                const min = parseInt(inputElement.min, 10);
+                const max = inputElement.max ? parseInt(inputElement.max, 10) : Infinity;
+
+                // Check if value is a number, not NaN, and within min/max bounds
+                if (isNaN(value) || value < min || value > max) {
+                    inputElement.classList.add('border-red-500', 'ring-red-300'); // Highlight invalid input
+                    return false;
+                } else {
+                    inputElement.classList.remove('border-red-500', 'ring-red-300'); // Remove highlight if valid
+                    return true;
+                }
+            };
+
+            /**
+             * Renders the calculation history to the display.
+             */
+            const renderHistory = () => {
+                calculationHistoryList.innerHTML = ''; // Clear previous history
+                if (calculationHistory.length === 0) {
+                    noHistoryMessage.classList.remove('hidden');
+                    calculationHistoryList.appendChild(noHistoryMessage);
+                } else {
+                    noHistoryMessage.classList.add('hidden');
+                    calculationHistory.forEach((entry) => {
+                        const historyItem = document.createElement('div');
+                        historyItem.classList.add('bg-white', 'p-3', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200');
+                        // Simplified output format: Option - Day, Time
+                        historyItem.innerHTML = `
+                            <p class="text-xl font-bold text-gray-800">${entry.option} - ${entry.newTime}</p>
+                        `;
+                        calculationHistoryList.appendChild(historyItem);
+                    });
+                }
+            };
+
+            /**
+             * Handles the selection of option buttons.
+             * @param {Event} event - The click event.
+             */
+            const handleOptionButtonClick = (event) => {
+                // Remove 'selected' class from all buttons
+                optionButtons.forEach(button => {
+                    button.classList.remove('selected');
+                });
+                // Add 'selected' class to the clicked button
+                event.currentTarget.classList.add('selected');
+                // Update the selectedOption variable
+                selectedOption = event.currentTarget.dataset.option;
+            };
+
+            // Add event listeners to option buttons
+            optionButtons.forEach(button => {
+                button.addEventListener('click', handleOptionButtonClick);
+            });
+
+            // Initialize the default selected button
+            const defaultButton = document.querySelector(`.option-button[data-option="${selectedOption}"]`);
+            if (defaultButton) {
+                defaultButton.classList.add('selected');
+            }
+
+
+            /**
+             * Handles the calculation of the new time by subtracting duration from 45 hours and adding the difference to current time.
+             */
+            const calculateNewTime = () => {
+                // Hide previous errors
+                inputErrorBox.classList.add('hidden');
+                duplicateErrorBox.classList.add('hidden'); // Hide duplicate error at start of new calculation
+
+                // Validate inputs
+                const isValidHours = validateInput(hoursToSubtractInput);
+                const isValidMinutes = validateInput(minutesToSubtractInput);
+
+                if (!isValidHours || !isValidMinutes) {
+                    inputErrorBox.classList.remove('hidden'); // Show input validation error
+                    return;
+                }
+
+                // Check for duplicate option in history
+                const isDuplicate = calculationHistory.some(entry => entry.option === selectedOption);
+                if (isDuplicate) {
+                    duplicateErrorBox.classList.remove('hidden'); // Show duplicate error
+                    return; // Stop calculation
+                }
+
+                // Get values to subtract
+                const hoursToSubtract = parseInt(hoursToSubtractInput.value, 10);
+                const minutesToSubtract = parseInt(minutesToSubtractInput.value, 10);
+
+                // Fixed reference time: 45 hours and 0 minutes
+                const fixedTotalMinutes = (45 * 60) + 0;
+
+                // User's input in minutes
+                const userInputMinutes = (hoursToSubtract * 60) + minutesToSubtract;
+
+                // Calculate the difference in minutes
+                const differenceInMinutes = fixedTotalMinutes - userInputMinutes;
+
+                // Get current time BEFORE calculation for logging
+                const nowBeforeCalc = new Date();
+
+                // Create a new Date object for calculation to avoid modifying the 'nowBeforeCalc'
+                const calculatedDate = new Date(nowBeforeCalc.getTime()); // Copy current time
+                calculatedDate.setMinutes(calculatedDate.getMinutes() + differenceInMinutes);
+
+                // Format the new date and time for the simplified output
+                const resultOptions = {
+                    weekday: 'long', // Full weekday name (e.g., Monday)
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true // Use 12-hour format with AM/PM
+                };
+                const newTimeFormatted = calculatedDate.toLocaleString('en-US', resultOptions);
+
+                // Add to history
+                calculationHistory.push({
+                    inputHours: hoursToSubtract,
+                    inputMinutes: minutesToSubtract,
+                    option: selectedOption,
+                    newTime: newTimeFormatted
+                });
+
+                // Save history to localStorage
+                localStorage.setItem('timeCalcHistory', JSON.stringify(calculationHistory));
+
+                // Render updated history
+                renderHistory();
+            };
+
+            /**
+             * Resets the calculation history.
+             */
+            const resetHistory = () => {
+                calculationHistory = []; // Clear the array
+                localStorage.removeItem('timeCalcHistory'); // Clear localStorage
+                renderHistory(); // Re-render to show empty history
+                duplicateErrorBox.classList.add('hidden'); // Hide duplicate error on reset
+            };
+
+            // Add event listener to the calculate button
+            calculateBtn.addEventListener('click', calculateNewTime);
+
+            // Add input event listeners to validate inputs as the user types
+            [hoursToSubtractInput, minutesToSubtractInput].forEach(input => {
+                input.addEventListener('input', () => {
+                    validateInput(input);
+                    inputErrorBox.classList.add('hidden'); // Hide input error when user types
+                });
+            });
+
+            // Add event listener for the reset button
+            resetHistoryBtn.addEventListener('click', resetHistory);
+
+            // Initial render of history when the page loads
+            renderHistory();
+
+            // Register Service Worker for PWA functionality
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('service-worker.js')
+                        .then(registration => {
+                            console.log('Service Worker registered with scope:', registration.scope);
+                        })
+                        .catch(error => {
+                            console.error('Service Worker registration failed:', error);
+                        });
+                });
+            }
+        });
+    </script>
+</body>
+</html>
