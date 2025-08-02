@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Time Calculation</title>
+    <title>Production Supervisor Tools</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" xintegrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0V4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- html2canvas CDN for screenshots -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" xintegrity="sha512-BNaRQnYJLWx6P+3cGbNfvFgHvFbmE6PmCDwlmQ+eHgZndE7From1JoxVXWbVGVxIIMtfVAobEVigXQAbjYjefQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         /* Custom styles for the Inter font */
         body {
@@ -23,11 +27,90 @@
             -moz-appearance: textfield;
         }
         /* Custom class for selected button state */
-        .option-button.selected {
+        .option-button.selected, .shift-button.selected { /* Added .shift-button.selected */
             background-color: #10B981; /* Tailwind green-500 */
             color: white;
             border-color: #059669; /* Tailwind green-600 */
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        /* Styling for the info message box */
+        .info-message-box, .confirm-message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #e0f2fe; /* Light blue */
+            border: 1px solid #90cdf4; /* Medium blue */
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 1000;
+            text-align: center;
+            max-width: 80%;
+        }
+        .info-message-box button, .confirm-message-box button {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background-color: #2563eb; /* Blue-700 */
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .confirm-message-box .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 1rem; /* Space between buttons */
+            margin-top: 1rem;
+        }
+        .confirm-message-box .button-group button {
+            flex: 1; /* Make buttons take equal width */
+            margin-top: 0; /* Override default button margin */
+        }
+        /* Navigation button styling */
+        .nav-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            flex: 1; /* Distribute space evenly */
+            text-align: center;
+        }
+        .nav-button.active {
+            background-color: #4CAF50; /* A shade of green */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .nav-button:not(.active) {
+            background-color: #e0e0e0; /* Light gray */
+            color: #424242; /* Dark gray text */
+            border: 1px solid #c0c0c0;
+        }
+        .nav-button:not(.active):hover {
+            background-color: #d0d0d0;
+        }
+        /* Small delete button in table */
+        .delete-record-btn {
+            background-color: #ef4444; /* Red-500 */
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem; /* Rounded-md */
+            font-size: 0.75rem; /* Text-xs */
+            font-weight: bold;
+            transition: background-color 0.2s;
+            cursor: pointer;
+            display: flex; /* Use flex to center icon */
+            justify-content: center;
+            align-items: center;
+            width: 2.5rem; /* Fixed width for consistent button size */
+            height: 2.5rem; /* Fixed height for consistent button size */
+        }
+        .delete-record-btn:hover {
+            background-color: #dc2626; /* Red-600 */
+        }
+        .delete-record-btn i {
+            font-size: 1rem; /* Adjust icon size */
         }
     </style>
     <!-- PWA Manifest -->
@@ -37,16 +120,24 @@
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Time Calc">
     <meta name="theme-color" content="#bbf7d0"> <!-- Matches a light green/teal -->
 
 </head>
 <body class="bg-gradient-to-br from-blue-100 to-purple-200 min-h-screen flex items-center justify-center p-4">
 
     <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
-        <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-6">Time Calculation</h1>
+        <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-6">Production Supervisor Tools</h1>
 
-        <div class="space-y-6">
+        <!-- Navigation Buttons -->
+        <div class="flex justify-center space-x-4 mb-6">
+            <button id="navTimeCalc" class="nav-button active">CIP Time</button>
+            <button id="navAgencyRecord" class="nav-button">Agency Record</button>
+            <button id="navChemicalInventory" class="nav-button">Chemical Inventory</button>
+        </div>
+
+        <!-- CIP Time Section -->
+        <div id="timeCalculationSection" class="space-y-6">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">CIP Time</h2>
             <!-- Current Time Display -->
             <div class="bg-green-50 p-4 rounded-xl border border-green-100 shadow-sm text-center">
                 <label class="block text-lg font-semibold text-green-700 mb-2">Current Time:</label>
@@ -68,7 +159,7 @@
                     <input type="number" id="hoursToSubtract" placeholder="Hours" min="0" value="0"
                            class="w-full sm:w-1/2 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
                     <span class="text-2xl text-blue-500">h</span>
-                    <input type="number" id="minutesToSubtract" placeholder="Minutes" min="0" max="59" value="0"
+                    <input type="number" id="minutesToSubtract" placeholder="MM" min="0" max="59" value="0"
                            class="w-full sm:w-1/2 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
                     <span class="text-2xl text-blue-500">m</span>
                 </div>
@@ -93,36 +184,339 @@
             <!-- Calculation History -->
             <div id="historyContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Calculation History</h2>
-                <div id="calculationHistoryList" class="space-y-3">
-                    <!-- History items will be appended here -->
-                    <p class="text-gray-500 text-center" id="noHistoryMessage">No calculations yet.</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
+                                <th class="py-3 px-2 text-left">Line</th>
+                                <th class="py-3 px-2 text-left">Day</th>
+                                <th class="py-3 px-2 text-left">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calculationHistoryList" class="text-gray-600 text-sm font-light">
+                            <!-- Records will be dynamically inserted here by JavaScript -->
+                            <tr id="noHistoryMessageRow" class="hidden">
+                                <td colspan="3" class="py-3 px-2 text-center text-gray-500">No calculations yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <!-- Reset Button for History -->
+                
                 <button id="resetHistoryBtn"
-                        class="w-full mt-4 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
+                        class="w-full mt-2 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
                     Reset History
                 </button>
             </div>
+        </div>
+
+        <!-- Agency Record Section (Initially Hidden) -->
+        <div id="agencyRecordSection" class="space-y-6 hidden">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Agency Record</h2>
+
+            <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 shadow-sm space-y-4">
+                <div class="flex flex-col">
+                    <label for="agencyName" class="block text-lg font-semibold text-purple-700 mb-2">Name:</label>
+                    <input type="text" id="agencyName" placeholder="Enter name"
+                           class="p-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
+                </div>
+
+                <div class="flex flex-col">
+                    <label class="block text-lg font-semibold text-purple-700 mb-2">Time:</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="agencyTimeHour" placeholder="HH" min="1" max="12" value="12"
+                               class="w-1/3 p-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
+                        <span class="text-2xl text-purple-500">:</span>
+                        <input type="number" id="agencyTimeMinute" placeholder="MM" min="0" max="59" value="00"
+                               class="w-1/3 p-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
+                        <select id="agencyTimeAmPm"
+                                class="w-1/3 p-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="saveAgencyRecordBtn"
+                        class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 rounded-xl text-xl font-bold hover:from-purple-600 hover:to-indigo-700 transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95">
+                    Save Entry
+                </button>
+
+                <!-- Error Message for Agency Record inputs -->
+                <div id="agencyRecordErrorBox" class="bg-red-100 p-3 rounded-xl border border-red-200 text-red-700 text-center font-medium hidden">
+                    Please fill in all fields for Agency Record.
+                </div>
+            </div>
+
+            <!-- Agency Record History -->
+            <div id="agencyRecordHistoryContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
+                <h3 class="text-xl font-bold text-gray-800 mb-3 text-center">Saved Records</h3>
+                <!-- Replaced div with table structure -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
+                                <th class="py-3 px-2 text-left">Name</th>
+                                <th class="py-3 px-2 text-left">Day</th>
+                                <th class="py-3 px-2 text-left">Time</th>
+                                <th class="py-3 px-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agencyRecordList" class="text-gray-600 text-sm font-light">
+                            <!-- Records will be dynamically inserted here by JavaScript -->
+                            <tr id="noAgencyRecordsMessageRowAgency" class="hidden">
+                                <td colspan="4" class="py-3 px-2 text-center text-gray-500">No records yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <button id="exportAgencyRecordsCsvBtn"
+                        class="w-full mt-4 bg-green-600 text-white py-2 rounded-xl text-lg font-bold hover:bg-green-700 transition-colors duration-300 shadow-md">
+                    Export to CSV
+                </button>
+
+                <button id="undoDeleteRecordBtn"
+                        class="w-full mt-2 bg-yellow-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-yellow-600 transition-colors duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                    Undo Last Action
+                </button>
+
+                <button id="resetAgencyRecordsBtn"
+                        class="w-full mt-2 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
+                    Reset All Agency Records
+                </button>
+            </div>
+        </div>
+
+        <!-- Chemical Inventory Section (Initially Hidden) -->
+        <div id="chemicalInventorySection" class="space-y-6 hidden">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Chemical Inventory</h2>
+
+            <div class="bg-teal-50 p-4 rounded-xl border border-teal-100 shadow-sm space-y-4">
+                <div class="flex flex-col">
+                    <label for="chemicalNameSelect" class="block text-lg font-semibold text-teal-700 mb-2">Chemical Name:</label>
+                    <select id="chemicalNameSelect"
+                            class="p-3 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
+                        <option value="">Select Chemical</option>
+                        <option value="Peroxide">Peroxide</option>
+                        <option value="Envirocid (acid)">Envirocid (acid)</option>
+                        <option value="Soil Off">Soil Off</option>
+                        <option value="Oxonia">Oxonia</option>
+                        <option value="Sterbac">Sterbac</option>
+                        <option value="MIP (alkaline)">MIP (alkaline)</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col">
+                    <label for="chemicalQuantity" class="block text-lg font-semibold text-teal-700 mb-2">Quantity:</label>
+                    <input type="number" id="chemicalQuantity" placeholder="e.g., 50 (liters/kg)" min="0"
+                           class="p-3 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
+                </div>
+
+                <div class="flex flex-col">
+                    <label class="block text-lg font-semibold text-teal-700 mb-2">Shift:</label>
+                    <div class="flex justify-center space-x-2">
+                        <button class="shift-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-shift="D1">D1</button>
+                        <button class="shift-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-shift="N2">N2</button>
+                        <button class="shift-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-shift="D3">D3</button>
+                        <button class="shift-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold text-lg flex-1 hover:bg-gray-200 transition-colors duration-200" data-shift="N4">N4</button>
+                    </div>
+                </div>
+
+                <button id="addChemicalBtn"
+                        class="w-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white py-3 rounded-xl text-xl font-bold hover:from-teal-600 hover:to-cyan-700 transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95">
+                    Add Chemical
+                </button>
+
+                <!-- Error Message for Chemical Inventory inputs -->
+                <div id="chemicalInventoryErrorBox" class="bg-red-100 p-3 rounded-xl border border-red-200 text-red-700 text-center font-medium hidden">
+                    Please select chemical, shift, and enter a valid quantity.
+                </div>
+            </div>
+
+            <!-- Chemical Inventory History -->
+            <div id="chemicalInventoryHistoryContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
+                <h3 class="text-xl font-bold text-gray-800 mb-3 text-center">Current Inventory</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
+                                <th class="py-3 px-2 text-left">Date</th>
+                                <th class="py-3 px-2 text-left">Shift</th>
+                                <th class="py-3 px-2 text-left">Chemical</th>
+                                <th class="py-3 px-2 text-left">Quantity</th>
+                                <th class="py-3 px-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chemicalInventoryList" class="text-gray-600 text-sm font-light">
+                            <!-- Chemical entries will be dynamically inserted here by JavaScript -->
+                            <tr id="noChemicalsMessageRow" class="hidden">
+                                <td colspan="5" class="py-3 px-2 text-center text-gray-500">No chemicals in inventory.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <button id="exportChemicalsCsvBtn"
+                        class="w-full mt-4 bg-green-600 text-white py-2 rounded-xl text-lg font-bold hover:bg-green-700 transition-colors duration-300 shadow-md">
+                    Export to CSV
+                </button>
+
+                <button id="takeChemicalScreenshotBtn"
+                        class="w-full mt-2 bg-blue-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-blue-600 transition-colors duration-300 shadow-md">
+                    Take Screenshot
+                </button>
+
+                <button id="resetChemicalInventoryBtn"
+                        class="w-full mt-2 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
+                    Reset All Chemicals
+                </button>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- Confirmation Message Box (hidden by default) -->
+    <div id="confirmMessageBox" class="confirm-message-box hidden">
+        <p id="confirmMessageText" class="text-gray-800 font-semibold"></p>
+        <div class="button-group">
+            <button id="confirmYesBtn" class="bg-red-600 hover:bg-red-700">Yes</button>
+            <button id="confirmNoBtn" class="bg-gray-500 hover:bg-gray-600">No</button>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Get references to input fields and display elements
+            // Get references to main sections and navigation buttons
+            const timeCalculationSection = document.getElementById('timeCalculationSection');
+            const agencyRecordSection = document.getElementById('agencyRecordSection');
+            const chemicalInventorySection = document.getElementById('chemicalInventorySection');
+            const navTimeCalcBtn = document.getElementById('navTimeCalc');
+            const navAgencyRecordBtn = document.getElementById('navAgencyRecord');
+            const navChemicalInventoryBtn = document.getElementById('navChemicalInventory');
+
+            // Get references to calculator-specific elements
             const hoursToSubtractInput = document.getElementById('hoursToSubtract');
             const minutesToSubtractInput = document.getElementById('minutesToSubtract');
-            const optionButtons = document.querySelectorAll('.option-button'); // Get all option buttons
+            const optionButtons = document.querySelectorAll('.option-button');
             const calculateBtn = document.getElementById('calculateBtn');
             const inputErrorBox = document.getElementById('inputErrorBox');
             const duplicateErrorBox = document.getElementById('duplicateErrorBox');
             const currentTimeDisplay = document.getElementById('currentTimeDisplay');
             const calculationHistoryList = document.getElementById('calculationHistoryList');
+            const noHistoryMessageRow = document.getElementById('noHistoryMessageRow');
             const resetHistoryBtn = document.getElementById('resetHistoryBtn');
-            const noHistoryMessage = document.getElementById('noHistoryMessage');
 
-            // Array to store calculation history, loaded from localStorage
+            // Get references to agency record-specific elements
+            const agencyNameInput = document.getElementById('agencyName');
+            const agencyTimeHourInput = document.getElementById('agencyTimeHour');
+            const agencyTimeMinuteInput = document.getElementById('agencyTimeMinute');
+            const agencyTimeAmPmSelect = document.getElementById('agencyTimeAmPm');
+            const saveAgencyRecordBtn = document.getElementById('saveAgencyRecordBtn');
+            const agencyRecordErrorBox = document.getElementById('agencyRecordErrorBox');
+            const agencyRecordList = document.getElementById('agencyRecordList');
+            const noAgencyRecordsMessageRowAgency = document.getElementById('noAgencyRecordsMessageRowAgency');
+            const resetAgencyRecordsBtnAgency = document.getElementById('resetAgencyRecordsBtn');
+            const undoDeleteRecordBtn = document.getElementById('undoDeleteRecordBtn');
+            const exportAgencyRecordsCsvBtn = document.getElementById('exportAgencyRecordsCsvBtn');
+
+
+            // Get references to chemical inventory-specific elements
+            const chemicalNameSelect = document.getElementById('chemicalNameSelect');
+            const chemicalQuantityInput = document.getElementById('chemicalQuantity');
+            const shiftButtons = document.querySelectorAll('.shift-button');
+            const addChemicalBtn = document.getElementById('addChemicalBtn');
+            const chemicalInventoryErrorBox = document.getElementById('chemicalInventoryErrorBox');
+            const chemicalInventoryList = document.getElementById('chemicalInventoryList');
+            const noChemicalsMessageRow = document.getElementById('noChemicalsMessageRow');
+            const resetChemicalInventoryBtn = document.getElementById('resetChemicalInventoryBtn');
+            const takeChemicalScreenshotBtn = document.getElementById('takeChemicalScreenshotBtn');
+            const exportChemicalsCsvBtnChem = document.getElementById('exportChemicalsCsvBtn');
+
+
+            // Confirmation message box elements
+            const confirmMessageBox = document.getElementById('confirmMessageBox');
+            const confirmMessageText = document = document.getElementById('confirmMessageText');
+            const confirmYesBtn = document.getElementById('confirmYesBtn');
+            const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+
+            // Data storage arrays
             let calculationHistory = JSON.parse(localStorage.getItem('timeCalcHistory')) || [];
-            let selectedOption = 'A'; // Default selected option
+            let agencyRecords = JSON.parse(localStorage.getItem('agencyRecords')) || [];
+            let chemicalInventory = JSON.parse(localStorage.getItem('chemicalInventory')) || [];
+
+            // Variables for undo functionality (for Agency Records)
+            let lastStateBeforeActionAgency = null;
+            let lastActionTypeAgency = null;
+            let lastDeletedRecordIndexAgency = -1;
+
+            // Variables for undo functionality (for Chemical Inventory)
+            let lastStateBeforeActionChemical = null;
+            let lastActionTypeChemical = null;
+            let lastDeletedRecordIndexChemical = -1;
+
+            // Generic confirmation dialog variables
+            let pendingActionSection = null; // 'agency' or 'chemical'
+            let pendingActionType = null; // 'delete' or 'reset'
+            let pendingIndex = -1; // Stores index for delete action
+
+
+            let selectedOption = 'A'; // Default selected option for Time Calculation
+            let selectedShift = 'D1'; // Default selected shift for Chemical Inventory
+
+            /**
+             * Pads a number with a leading zero if it's less than 10.
+             * @param {number} num - The number to pad.
+             * @returns {string} The padded number as a string.
+             */
+            const padZero = (num) => num.toString().padStart(2, '0');
+
+            /**
+             * Function to switch between sections.
+             * @param {string} sectionToShowId - The ID of the section to display.
+             */
+            const showSection = (sectionToShowId) => {
+                // Hide all sections
+                timeCalculationSection.classList.add('hidden');
+                agencyRecordSection.classList.add('hidden');
+                chemicalInventorySection.classList.add('hidden');
+
+                // Remove active class from all nav buttons
+                navTimeCalcBtn.classList.remove('active');
+                navAgencyRecordBtn.classList.remove('active');
+                navChemicalInventoryBtn.classList.remove('active');
+
+                // Show the selected section and add active class to its button
+                if (sectionToShowId === 'timeCalculationSection') {
+                    timeCalculationSection.classList.remove('hidden');
+                    navTimeCalcBtn.classList.add('active');
+                } else if (sectionToShowId === 'agencyRecordSection') {
+                    agencyRecordSection.classList.remove('hidden');
+                    navAgencyRecordBtn.classList.add('active');
+                    renderAgencyRecords(); // Ensure records are rendered when switching to this section
+                } else if (sectionToShowId === 'chemicalInventorySection') {
+                    chemicalInventorySection.classList.remove('hidden');
+                    navChemicalInventoryBtn.classList.add('active');
+                    renderChemicalInventory(); // Render chemical inventory when switching
+                    // Ensure a shift button is selected when showing this section
+                    const defaultShiftButton = document.querySelector(`.shift-button[data-shift="${selectedShift}"]`);
+                    if (defaultShiftButton) {
+                        defaultShiftButton.classList.add('selected');
+                    }
+                }
+            };
+
+            // Add event listeners for navigation buttons
+            navTimeCalcBtn.addEventListener('click', () => showSection('timeCalculationSection'));
+            navAgencyRecordBtn.addEventListener('click', () => showSection('agencyRecordSection'));
+            navChemicalInventoryBtn.addEventListener('click', () => showSection('chemicalInventorySection'));
+
+            // Initially show the CIP Time section
+            showSection('timeCalculationSection');
+
+
+            /* --- CIP Time Section Functions --- */
 
             /**
              * Updates the display with the current date and time.
@@ -158,23 +552,25 @@
             };
 
             /**
-             * Renders the calculation history to the display.
+             * Renders the calculation history to the display in a table format.
              */
             const renderHistory = () => {
                 calculationHistoryList.innerHTML = ''; // Clear previous history
                 if (calculationHistory.length === 0) {
-                    noHistoryMessage.classList.remove('hidden');
-                    calculationHistoryList.appendChild(noHistoryMessage);
+                    noHistoryMessageRow.classList.remove('hidden');
+                    calculationHistoryList.appendChild(noHistoryMessageRow);
                 } else {
-                    noHistoryMessage.classList.add('hidden');
+                    noHistoryMessageRow.classList.add('hidden');
                     calculationHistory.forEach((entry) => {
-                        const historyItem = document.createElement('div');
-                        historyItem.classList.add('bg-white', 'p-3', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200');
-                        // Simplified output format: Option - Day, Time
-                        historyItem.innerHTML = `
-                            <p class="text-xl font-bold text-gray-800">${entry.option} - ${entry.newTime}</p>
+                        const historyRow = document.createElement('tr');
+                        historyRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
+                        
+                        historyRow.innerHTML = `
+                            <td class="py-3 px-2 text-left">${entry.option}</td> <!-- Display A, B, C, D -->
+                            <td class="py-3 px-2 text-left">${entry.date}</td>
+                            <td class="py-3 px-2 text-left">${entry.newTime}</td>
                         `;
-                        calculationHistoryList.appendChild(historyItem);
+                        calculationHistoryList.appendChild(historyRow);
                     });
                 }
             };
@@ -246,13 +642,19 @@
                 // Get current time BEFORE calculation for logging
                 const nowBeforeCalc = new Date();
 
+                // Format the date for CIP entry
+                const weekday = nowBeforeCalc.toLocaleDateString('en-US', { weekday: 'short' }); // e.g., "Mon"
+                const month = nowBeforeCalc.toLocaleDateString('en-US', { month: 'short' });   // e.g., "Aug"
+                const day = padZero(nowBeforeCalc.getDate());                                  // e.g., "01"
+                const currentDateFormatted = `${weekday} ${day} ${month}`; // Combines to "Mon 01 Aug"
+
+
                 // Create a new Date object for calculation to avoid modifying the 'nowBeforeCalc'
                 const calculatedDate = new Date(nowBeforeCalc.getTime()); // Copy current time
                 calculatedDate.setMinutes(calculatedDate.getMinutes() + differenceInMinutes);
 
-                // Format the new date and time for the simplified output
+                // Format the new time for the simplified output
                 const resultOptions = {
-                    weekday: 'long', // Full weekday name (e.g., Monday)
                     hour: '2-digit',
                     minute: '2-digit',
                     second: '2-digit',
@@ -265,8 +667,13 @@
                     inputHours: hoursToSubtract,
                     inputMinutes: minutesToSubtract,
                     option: selectedOption,
+                    date: currentDateFormatted, // Add the captured date
                     newTime: newTimeFormatted
                 });
+
+                // Sort history by option (A, B, C, D)
+                calculationHistory.sort((a, b) => a.option.localeCompare(b.option));
+
 
                 // Save history to localStorage
                 localStorage.setItem('timeCalcHistory', JSON.stringify(calculationHistory));
@@ -302,18 +709,552 @@
             // Initial render of history when the page loads
             renderHistory();
 
-            // Register Service Worker for PWA functionality
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('service-worker.js')
-                        .then(registration => {
-                            console.log('Service Worker registered with scope:', registration.scope);
-                        })
-                        .catch(error => {
-                            console.error('Service Worker registration failed:', error);
-                        });
+
+            /* --- Agency Record Section Functions --- */
+
+            /**
+             * Renders the saved agency records to the display.
+             */
+            const renderAgencyRecords = () => {
+                agencyRecordList.innerHTML = ''; // Clear previous records
+                if (agencyRecords.length === 0) {
+                    noAgencyRecordsMessageRowAgency.classList.remove('hidden'); // Show "No records yet" row
+                    agencyRecordList.appendChild(noAgencyRecordsMessageRowAgency);
+                    undoDeleteRecordBtn.disabled = true; // Disable undo button if no records
+                } else {
+                    noAgencyRecordsMessageRowAgency.classList.add('hidden'); // Hide "No records yet" row
+                    agencyRecords.forEach((record, index) => {
+                        const recordRow = document.createElement('tr');
+                        recordRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
+                        
+                        // Original output format for Agency Records: Name, Day, Time, Actions (Line column removed)
+                        recordRow.innerHTML = `
+                            <td class="py-3 px-2 text-left whitespace-normal">${record.name}</td>
+                            <td class="py-3 px-2 text-left">${record.date}</td>
+                            <td class="py-3 px-2 text-left">${record.time}</td>
+                            <td class="py-3 px-2 text-left">
+                                <button class="delete-record-btn" data-index="${index}">
+                                    <i class="fas fa-trash-alt"></i> <!-- Font Awesome bin icon -->
+                                </button>
+                            </td>
+                        `;
+                        agencyRecordList.appendChild(recordRow);
+                    });
+                    // Only enable undo if there was a last action that can be undone
+                    undoDeleteRecordBtn.disabled = (lastStateBeforeActionAgency === null);
+                }
+
+                // Add event listeners to newly created delete buttons
+                document.querySelectorAll('#agencyRecordList .delete-record-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const indexToDelete = parseInt(event.target.closest('button').dataset.index, 10); // Use closest to get the button
+                        showConfirmation('agency', 'delete', indexToDelete); // Show confirmation instead of direct delete
+                    });
                 });
+            };
+
+            /**
+             * Handles saving a new agency record.
+             */
+            const saveAgencyRecord = () => {
+                agencyRecordErrorBox.classList.add('hidden'); // Hide previous errors
+
+                const name = agencyNameInput.value.trim();
+                const hour = parseInt(agencyTimeHourInput.value, 10);
+                const minute = parseInt(agencyTimeMinuteInput.value, 10);
+                const ampm = agencyTimeAmPmSelect.value;
+                
+                // Capture current date at the time of saving
+                const now = new Date();
+                const weekday = now.toLocaleDateString('en-US', { weekday: 'short' }); // e.g., "Mon"
+                const month = now.toLocaleDateString('en-US', { month: 'short' });   // e.g., "Aug"
+                const day = padZero(now.getDate());                                  // e.g., "01"
+                const currentDateFormatted = `${weekday} ${day} ${month}`; // Combines to "Mon 01 Aug"
+
+                console.log('Attempting to save Agency Record:');
+                console.log('Name:', name);
+                console.log('Hour:', hour, 'Minute:', minute, 'AM/PM:', ampm);
+                console.log('Date (captured):', currentDateFormatted); // Check if date is populated
+
+                // Basic validation
+                if (!name || isNaN(hour) || hour < 1 || hour > 12 || isNaN(minute) || minute < 0 || minute > 59) {
+                    agencyRecordErrorBox.classList.remove('hidden');
+                    console.error('Validation failed: Missing or invalid input.');
+                    return;
+                }
+                console.log('Validation passed.');
+
+                // Use padZero function here
+                const formattedTime = `${padZero(hour)}:${padZero(minute)} ${ampm}`;
+
+                agencyRecords.push({
+                    name: name,
+                    time: formattedTime,
+                    date: currentDateFormatted // Use the captured current date
+                });
+                console.log('Agency Records array after push:', agencyRecords);
+
+                // Clear input fields after saving
+                agencyNameInput.value = '';
+                agencyTimeHourInput.value = '12'; // Reset to default
+                agencyTimeMinuteInput.value = '00'; // Reset to default
+                agencyTimeAmPmSelect.value = 'AM'; // Reset to default
+
+
+                // Clear last deleted record and disable undo button on new save
+                lastStateBeforeActionAgency = null;
+                lastActionTypeAgency = null;
+                lastDeletedRecordIndexAgency = -1;
+                undoDeleteRecordBtn.disabled = true;
+
+                localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
+                console.log('Saved to localStorage.');
+                renderAgencyRecords(); // Re-render the list
+                console.log('Rendered agency records.');
+            };
+
+            /**
+             * Performs the actual deletion of a specific agency record after confirmation.
+             * @param {number} index - The index of the record to delete.
+             */
+            const performDeleteRecordAgency = (index) => {
+                if (index >= 0 && index < agencyRecords.length) {
+                    // Store the state before this action for undo
+                    lastStateBeforeActionAgency = [...agencyRecords]; // Deep copy
+                    lastActionTypeAgency = 'delete';
+                    lastDeletedRecordIndexAgency = index;
+
+                    // Remove the record from the array
+                    agencyRecords.splice(index, 1);
+                    localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
+                    renderAgencyRecords(); // Re-render the table
+                    undoDeleteRecordBtn.disabled = false; // Enable undo button
+                    console.log('Agency Record deleted. Last state saved for undo.');
+                }
+            };
+
+            /**
+             * Handles undoing the last action for Agency Records.
+             */
+            const handleUndoLastActionAgency = () => {
+                if (lastStateBeforeActionAgency !== null && lastActionTypeAgency !== null) {
+                    agencyRecords = [...lastStateBeforeActionAgency]; // Restore the previous state
+                    localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
+                    renderAgencyRecords(); // Re-render the table
+
+                    // Clear undo state and disable button
+                    lastStateBeforeActionAgency = null;
+                    lastActionTypeAgency = null;
+                    lastDeletedRecordIndexAgency = -1;
+                    console.log('Agency Record Undo successful. State restored.');
+                }
+            };
+
+            /**
+             * Resets all agency records after confirmation.
+             */
+            const performResetAgencyRecords = () => {
+                // Store the state before this action for undo
+                lastStateBeforeActionAgency = [...agencyRecords]; // Deep copy
+                lastActionTypeAgency = 'reset';
+                lastDeletedRecordIndexAgency = -1; // Not applicable
+
+                agencyRecords = []; // Clear the array
+                localStorage.removeItem('agencyRecords'); // Clear localStorage
+                renderAgencyRecords();
+                undoDeleteRecordBtn.disabled = false; // Enable undo button
+                console.log('All Agency Records reset. Last state saved for undo.');
+            };
+
+            /**
+             * Exports the agency records data to a CSV file.
+             */
+            const exportAgencyRecordsToCsv = () => {
+                if (agencyRecords.length === 0) {
+                    agencyRecordErrorBox.classList.remove('hidden');
+                    agencyRecordErrorBox.textContent = 'No agency records to export.';
+                    return;
+                }
+
+                // Define CSV headers
+                const headers = ["Name", "Day", "Time"];
+                
+                // Map data to CSV rows
+                const rows = agencyRecords.map(record => [
+                    `"${record.name.replace(/"/g, '""')}"`, // Escape double quotes within the name
+                    `"${record.date}"`,
+                    `"${record.time}"`
+                ].join(',')); // Join columns with commas
+
+                // Combine headers and rows
+                const csvContent = [headers.join(','), ...rows].join('\n');
+
+                // Create a Blob from the CSV content
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+                // Create a download link and trigger click
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'agency_records.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href); // Clean up the object URL
+            };
+
+
+            /* --- Chemical Inventory Section Functions --- */
+
+            /**
+             * Handles the selection of shift buttons.
+             * @param {Event} event - The click event.
+             */
+            const handleShiftButtonClick = (event) => {
+                // Remove 'selected' class from all shift buttons
+                shiftButtons.forEach(button => {
+                    button.classList.remove('selected');
+                });
+                // Add 'selected' class to the clicked button
+                event.currentTarget.classList.add('selected');
+                // Update the selectedShift variable
+                selectedShift = event.currentTarget.dataset.shift;
+            };
+
+            // Add event listeners to shift buttons
+            shiftButtons.forEach(button => {
+                button.addEventListener('click', handleShiftButtonClick);
+            });
+
+            // Initialize the default selected shift button
+            const defaultShiftButton = document.querySelector(`.shift-button[data-shift="${selectedShift}"]`);
+            if (defaultShiftButton) {
+                defaultShiftButton.classList.add('selected');
             }
+
+
+            /**
+             * Renders the chemical inventory to the display.
+             */
+            const renderChemicalInventory = () => {
+                chemicalInventoryList.innerHTML = ''; // Clear previous entries
+                if (chemicalInventory.length === 0) {
+                    noChemicalsMessageRow.classList.remove('hidden');
+                    chemicalInventoryList.appendChild(noChemicalsMessageRow);
+                } else {
+                    noChemicalsMessageRow.classList.add('hidden');
+
+                    for (let i = 0; i < chemicalInventory.length; i++) {
+                        const chemical = chemicalInventory[i];
+                        const chemicalRow = document.createElement('tr');
+                        chemicalRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
+
+                        let dateCellHtml = '';
+                        let shiftCellHtml = '';
+
+                        // Check if this is the first row or if the date/shift combination is different from the previous row
+                        const isNewGroup = (i === 0) ||
+                                           (chemical.date !== chemicalInventory[i-1].date) ||
+                                           (chemical.shift !== chemicalInventory[i-1].shift);
+
+                        if (isNewGroup) {
+                            let dateSpan = 1;
+                            let shiftSpan = 1;
+
+                            // Calculate rowspan for Date and Shift by looking ahead
+                            for (let j = i + 1; j < chemicalInventory.length; j++) {
+                                if (chemicalInventory[j].date === chemical.date && chemicalInventory[j].shift === chemical.shift) {
+                                    dateSpan++;
+                                    shiftSpan++;
+                                } else {
+                                    break; // Stop if date or shift changes
+                                }
+                            }
+                            // Add align-middle for vertical centering
+                            dateCellHtml = `<td class="py-3 px-2 text-left align-middle" rowspan="${dateSpan}">${chemical.date}</td>`;
+                            shiftCellHtml = `<td class="py-3 px-2 text-left align-middle" rowspan="${shiftSpan}">${chemical.shift}</td>`;
+                        }
+                        
+                        chemicalRow.innerHTML = `
+                            ${dateCellHtml}
+                            ${shiftCellHtml}
+                            <td class="py-3 px-2 text-left whitespace-normal">${chemical.name}</td>
+                            <td class="py-3 px-2 text-left">${chemical.quantity}</td>
+                            <td class="py-3 px-2 text-left">
+                                <button class="delete-record-btn" data-index="${i}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        `;
+                        chemicalInventoryList.appendChild(chemicalRow);
+                    }
+                }
+
+                // Add event listeners to newly created delete buttons for chemicals
+                document.querySelectorAll('#chemicalInventoryList .delete-record-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const indexToDelete = parseInt(event.target.closest('button').dataset.index, 10);
+                        showConfirmation('chemical', 'delete', indexToDelete);
+                    });
+                });
+            };
+
+            /**
+             * Handles adding a new chemical entry.
+             */
+            const addChemical = () => {
+                chemicalInventoryErrorBox.classList.add('hidden'); // Hide previous errors
+                chemicalInventoryErrorBox.textContent = ''; // Clear previous message
+
+                const name = chemicalNameSelect.value; // Get value from select
+                const quantity = parseFloat(chemicalQuantityInput.value);
+                const shift = selectedShift; // Get value from selectedShift variable
+
+                // Get current date for the entry
+                const now = new Date();
+                const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
+                const month = now.toLocaleDateString('en-US', { month: 'short' });
+                const day = padZero(now.getDate());
+                const yearShort = now.getFullYear().toString().slice(-2); // Get last two digits of year
+                const currentDateFormatted = `${weekday} ${day} ${month}-${yearShort}`; // e.g., "Wed 01 Aug-25"
+
+
+                // Basic validation
+                if (!name || isNaN(quantity) || quantity < 0 || !shift) { 
+                    chemicalInventoryErrorBox.classList.remove('hidden');
+                    chemicalInventoryErrorBox.textContent = 'Please select chemical, shift, and enter a valid quantity.';
+                    return;
+                }
+
+                // NEW VALIDATION: Check if data for a different shift exists for the current date
+                const conflictingShiftEntry = chemicalInventory.find(entry =>
+                    entry.date === currentDateFormatted && entry.shift !== shift
+                );
+
+                if (conflictingShiftEntry) {
+                    chemicalInventoryErrorBox.classList.remove('hidden');
+                    chemicalInventoryErrorBox.textContent = `An entry already exists for ${currentDateFormatted} on Shift ${conflictingShiftEntry.shift}. Please reset all chemicals to add entries for a different shift on this date.`;
+                    return;
+                }
+
+                // Existing validation: Check for exact duplicate entry (same date, shift, chemical name)
+                const isExactDuplicate = chemicalInventory.some(entry =>
+                    entry.date === currentDateFormatted &&
+                    entry.shift === shift &&
+                    entry.name === name
+                );
+
+                if (isExactDuplicate) {
+                    chemicalInventoryErrorBox.classList.remove('hidden');
+                    chemicalInventoryErrorBox.textContent = 'This chemical entry already exists for this date and shift.';
+                    return;
+                }
+
+
+                chemicalInventory.push({
+                    date: currentDateFormatted, // Add date
+                    shift: shift, // Add shift
+                    name: name,
+                    quantity: quantity
+                });
+
+                // Clear input fields
+                chemicalNameSelect.value = ''; // Reset chemical dropdown
+                chemicalQuantityInput.value = '';
+                // No need to reset shift buttons, as one is always selected by default
+
+                localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
+                renderChemicalInventory();
+            };
+
+            /**
+             * Performs the actual deletion of a specific chemical record after confirmation.
+             * @param {number} index - The index of the record to delete.
+             */
+            const performDeleteChemical = (index) => {
+                if (index >= 0 && index < chemicalInventory.length) {
+                    // Store the state before this action for undo
+                    lastStateBeforeActionChemical = [...chemicalInventory];
+                    lastActionTypeChemical = 'delete';
+                    lastDeletedRecordIndexChemical = index;
+
+                    chemicalInventory.splice(index, 1);
+                    localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
+                    renderChemicalInventory();
+                }
+            };
+
+            /**
+             * Handles undoing the last action for Chemical Inventory.
+             */
+            const handleUndoLastActionChemical = () => {
+                if (lastStateBeforeActionChemical !== null && lastActionTypeChemical !== null) {
+                    chemicalInventory = [...lastStateBeforeActionChemical]; // Restore the previous state
+                    localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
+                    renderChemicalInventory();
+
+                    // Clear undo state
+                    lastStateBeforeActionChemical = null;
+                    lastActionTypeChemical = null;
+                    lastDeletedRecordIndexChemical = -1;
+                    console.log('Chemical Inventory Undo successful. State restored.');
+                }
+            };
+
+            /**
+             * Resets all chemical records after confirmation.
+             */
+            const performResetChemicalInventory = () => {
+                // Store the state before this action for undo
+                lastStateBeforeActionChemical = [...chemicalInventory];
+                lastActionTypeChemical = 'reset';
+                lastDeletedRecordIndexChemical = -1; // Not applicable
+
+                chemicalInventory = [];
+                localStorage.removeItem('chemicalInventory');
+                renderChemicalInventory();
+            };
+
+            /**
+             * Takes a screenshot of the chemical inventory table and triggers a download.
+             */
+            const takeChemicalInventoryScreenshot = () => {
+                const targetElement = document.getElementById('chemicalInventoryHistoryContainer'); // Target the container with the table
+
+                html2canvas(targetElement, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true // Important if any content is from other origins
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'chemical_inventory.png';
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link); // Append to body to make it clickable
+                    link.click(); // Programmatically click the link to trigger download
+                    document.body.removeChild(link); // Clean up the temporary link
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    alert('Failed to take screenshot. Please try again.'); // Use a simple alert for now, could be a custom message box
+                });
+            };
+
+            /**
+             * Exports the chemical inventory data to a CSV file.
+             */
+            const exportChemicalsToCsv = () => {
+                if (chemicalInventory.length === 0) {
+                    chemicalInventoryErrorBox.classList.remove('hidden');
+                    chemicalInventoryErrorBox.textContent = 'No chemical entries to export.';
+                    return;
+                }
+
+                // Define CSV headers
+                const headers = ["Date", "Shift", "Chemical", "Quantity"];
+                
+                // Map data to CSV rows
+                const rows = chemicalInventory.map(entry => [
+                    `"${entry.date}"`, // Enclose in quotes to handle commas if any in date format
+                    `"${entry.shift}"`,
+                    `"${entry.name.replace(/"/g, '""')}"`, // Escape double quotes within the name
+                    entry.quantity
+                ].join(',')); // Join columns with commas
+
+                // Combine headers and rows
+                const csvContent = [headers.join(','), ...rows].join('\n');
+
+                // Create a Blob from the CSV content
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+                // Create a download link and trigger click
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'chemical_inventory.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href); // Clean up the object URL
+            };
+
+
+            /* --- Generic Confirmation Dialog Functions --- */
+            /**
+             * Shows the generic confirmation dialog.
+             * @param {string} section - 'agency' or 'chemical'
+             * @param {string} actionType - 'delete' or 'reset'
+             * @param {number} [index] - Optional: index of the item to delete for 'delete' action.
+             */
+            const showConfirmation = (section, actionType, index = -1) => {
+                pendingActionSection = section;
+                pendingActionType = actionType;
+                pendingIndex = index;
+
+                if (actionType === 'delete') {
+                    confirmMessageText.textContent = `Are you sure you want to delete this record?`;
+                } else if (actionType === 'reset') {
+                    if (section === 'agency') {
+                        confirmMessageText.textContent = `Are you sure you want to reset all agency records? This action cannot be undone.`;
+                    } else if (section === 'chemical') {
+                        confirmMessageText.textContent = `Are you sure you want to reset all chemical inventory? This action cannot be undone.`;
+                    }
+                }
+                confirmMessageBox.classList.remove('hidden');
+            };
+
+            /**
+             * Executes the confirmed action based on pendingActionSection and pendingActionType.
+             */
+            const executeConfirmedAction = () => {
+                confirmMessageBox.classList.add('hidden'); // Hide the confirmation box
+
+                if (pendingActionSection === 'agency') {
+                    if (pendingActionType === 'delete' && pendingIndex !== -1) {
+                        performDeleteRecordAgency(pendingIndex);
+                    } else if (pendingActionType === 'reset') {
+                        performResetAgencyRecords();
+                    }
+                } else if (pendingActionSection === 'chemical') {
+                    if (pendingActionType === 'delete' && pendingIndex !== -1) {
+                        performDeleteChemical(pendingIndex);
+                    } else if (pendingActionType === 'reset') {
+                        performResetChemicalInventory();
+                    }
+                }
+                // Reset pending state
+                pendingActionSection = null;
+                pendingActionType = null;
+                pendingIndex = -1;
+            };
+
+            /**
+             * Cancels the pending action and hides the confirmation dialog.
+             */
+            const cancelConfirmedAction = () => {
+                confirmMessageBox.classList.add('hidden'); // Hide the confirmation box
+                // Reset pending state
+                pendingActionSection = null;
+                pendingActionType = null;
+                pendingIndex = -1;
+            };
+
+            // Add event listeners for Agency Record section
+            saveAgencyRecordBtn.addEventListener('click', saveAgencyRecord);
+            resetAgencyRecordsBtnAgency.addEventListener('click', () => showConfirmation('agency', 'reset'));
+            undoDeleteRecordBtn.addEventListener('click', handleUndoLastActionAgency);
+            exportAgencyRecordsCsvBtn.addEventListener('click', exportAgencyRecordsToCsv);
+
+
+            // Add event listeners for Chemical Inventory section
+            addChemicalBtn.addEventListener('click', addChemical);
+            resetChemicalInventoryBtn.addEventListener('click', () => showConfirmation('chemical', 'reset'));
+            takeChemicalScreenshotBtn.addEventListener('click', takeChemicalInventoryScreenshot);
+            exportChemicalsCsvBtnChem.addEventListener('click', exportChemicalsToCsv);
+
+
+            // Event listeners for the generic confirmation dialog buttons
+            confirmYesBtn.addEventListener('click', executeConfirmedAction);
+            confirmNoBtn.addEventListener('click', cancelConfirmedAction);
+
+            // Initial render of agency records and chemical inventory when page loads
+            renderAgencyRecords();
+            renderChemicalInventory();
         });
     </script>
 </body>
