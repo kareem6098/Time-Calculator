@@ -27,7 +27,7 @@
             -moz-appearance: textfield;
         }
         /* Custom class for selected button state */
-        .option-button.selected, .shift-button.selected { /* Added .shift-button.selected */
+        .option-button.selected, .shift-button.selected, .location-button.selected { /* Added .location-button.selected */
             background-color: #10B981; /* Tailwind green-500 */
             color: white;
             border-color: #059669; /* Tailwind green-600 */
@@ -74,7 +74,10 @@
             font-weight: bold;
             transition: all 0.2s ease-in-out;
             cursor: pointer;
-            flex: 1; /* Distribute space evenly */
+            /* Adjusted for better responsiveness */
+            flex-grow: 1; /* Allow to grow */
+            flex-shrink: 1; /* Allow to shrink */
+            min-width: 80px; /* Minimum width to prevent squishing too much */
             text-align: center;
         }
         .nav-button.active {
@@ -112,6 +115,18 @@
         .delete-record-btn i {
             font-size: 1rem; /* Adjust icon size */
         }
+        /* Adjusted font size for location buttons to ensure text fits */
+        .location-button {
+            font-size: 0.875rem; /* text-sm */
+            padding: 0.75rem 0.75rem; /* Reduced horizontal padding slightly */
+        }
+        /* Responsive adjustment for location buttons on larger screens if needed */
+        @media (min-width: 640px) { /* Tailwind's sm breakpoint */
+            .location-button {
+                font-size: 1rem; /* text-base on larger screens */
+                padding: 0.75rem 1.5rem; /* Restore original padding */
+            }
+        }
     </style>
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -129,10 +144,11 @@
         <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-6">Production Supervisor Tools</h1>
 
         <!-- Navigation Buttons -->
-        <div class="flex justify-center space-x-4 mb-6">
+        <div class="flex flex-wrap justify-center gap-2 mb-6"> <!-- Changed space-x-4 to gap-2 and added flex-wrap -->
             <button id="navTimeCalc" class="nav-button active">CIP Time</button>
             <button id="navAgencyRecord" class="nav-button">Agency Record</button>
             <button id="navChemicalInventory" class="nav-button">Chemical Inventory</button>
+            <button id="navHeatStressMonitor" class="nav-button">Heat Stress</button>
         </div>
 
         <!-- CIP Time Section -->
@@ -156,10 +172,10 @@
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 shadow-sm">
                 <label class="block text-lg font-semibold text-blue-700 mb-3">Subtract from 45 hours</label>
                 <div class="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-3">
-                    <input type="number" id="hoursToSubtract" placeholder="Hours" min="0" value="0"
+                    <input type="number" id="hoursToSubtract" placeholder="Hours" min="0"
                            class="w-full sm:w-1/2 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
                     <span class="text-2xl text-blue-500">h</span>
-                    <input type="number" id="minutesToSubtract" placeholder="MM" min="0" max="59" value="0"
+                    <input type="number" id="minutesToSubtract" placeholder="MM" min="0" max="59"
                            class="w-full sm:w-1/2 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent text-center text-lg font-medium text-gray-700 bg-white shadow-sm">
                     <span class="text-2xl text-blue-500">m</span>
                 </div>
@@ -185,7 +201,7 @@
             <div id="historyContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Calculation History</h2>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                    <table id="calculationHistoryTable" class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
                         <thead>
                             <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
                                 <th class="py-3 px-2 text-left">Line</th>
@@ -205,6 +221,11 @@
                 <button id="resetHistoryBtn"
                         class="w-full mt-2 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
                     Reset History
+                </button>
+
+                <button id="takeTimeCalcScreenshotBtn"
+                        class="w-full mt-2 bg-blue-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-blue-600 transition-colors duration-300 shadow-md">
+                    Take Screenshot
                 </button>
             </div>
         </div>
@@ -252,7 +273,7 @@
                 <h3 class="text-xl font-bold text-gray-800 mb-3 text-center">Saved Records</h3>
                 <!-- Replaced div with table structure -->
                 <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                    <table id="agencyRecordTable" class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
                         <thead>
                             <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
                                 <th class="py-3 px-2 text-left">Name</th>
@@ -273,6 +294,11 @@
                 <button id="exportAgencyRecordsCsvBtn"
                         class="w-full mt-4 bg-green-600 text-white py-2 rounded-xl text-lg font-bold hover:bg-green-700 transition-colors duration-300 shadow-md">
                     Export to CSV
+                </button>
+
+                <button id="takeAgencyScreenshotBtn"
+                        class="w-full mt-2 bg-blue-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-blue-600 transition-colors duration-300 shadow-md">
+                    Take Screenshot
                 </button>
 
                 <button id="undoDeleteRecordBtn"
@@ -337,7 +363,7 @@
             <div id="chemicalInventoryHistoryContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
                 <h3 class="text-xl font-bold text-gray-800 mb-3 text-center">Current Inventory</h3>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                    <table id="chemicalInventoryTable" class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
                         <thead>
                             <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
                                 <th class="py-3 px-2 text-left">Date</th>
@@ -373,6 +399,92 @@
             </div>
         </div>
 
+        <!-- New: Heat Stress Monitor Section -->
+        <div id="heatStressMonitorSection" class="space-y-6 hidden">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Heat Stress Monitor</h2>
+
+            <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm space-y-4">
+                <div class="flex flex-col">
+                    <label class="block text-lg font-semibold text-orange-700 mb-2">Location:</label>
+                    <div class="grid grid-cols-3 gap-2 sm:grid-cols-3"> <!-- Changed grid-cols-4 to grid-cols-3 -->
+                        <button class="location-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors duration-200" data-location="Filler">Filler</button>
+                        <button class="location-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors duration-200" data-location="DE">DE</button>
+                        <button class="location-button p-3 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors duration-200" data-location="Process">Process</button>
+                        <!-- Removed Maintenance button -->
+                    </div>
+                </div>
+
+                <!-- New Input Fields for Temperature, RH%, WBGT -->
+                <div class="flex flex-col">
+                    <label for="heatStressTemperature" class="block text-lg font-semibold text-orange-700 mb-2">Temperature (°C):</label>
+                    <input type="number" id="heatStressTemperature" placeholder="e.g., 25.0" step="0.1"
+                           class="p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
+                </div>
+
+                <div class="flex flex-col">
+                    <label for="heatStressRH" class="block text-lg font-semibold text-orange-700 mb-2">RH (%):</label>
+                    <input type="number" id="heatStressRH" placeholder="e.g., 60" min="0" max="100"
+                           class="p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
+                </div>
+
+                <div class="flex flex-col">
+                    <label for="heatStressWBGT" class="block text-lg font-semibold text-orange-700 mb-2">WBGT (°C):</label>
+                    <input type="number" id="heatStressWBGT" placeholder="e.g., 28.5" step="0.1"
+                           class="p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
+                </div>
+
+                <button id="recordHeatStressBtn"
+                        class="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl text-xl font-bold hover:from-orange-600 hover:to-red-700 transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95">
+                    Record Reading
+                </button>
+
+                <!-- Error Message for Heat Stress Monitor inputs -->
+                <div id="heatStressErrorBox" class="bg-red-100 p-3 rounded-xl border border-red-200 text-red-700 text-center font-medium hidden">
+                    Please select a location and enter valid values for Temperature, RH%, and WBGT.
+                </div>
+            </div>
+
+            <!-- Heat Stress Readings History -->
+            <div id="heatStressHistoryContainer" class="bg-gray-100 p-5 rounded-xl border border-gray-200 shadow-inner">
+                <h3 class="text-xl font-bold text-gray-800 mb-3 text-center">Recorded Readings</h3>
+                <div class="overflow-x-auto">
+                    <table id="heatStressTable" class="min-w-full bg-white rounded-lg shadow-sm border border-gray-200">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
+                                <th class="py-3 px-2 text-left">Time</th>
+                                <th class="py-3 px-2 text-left">Location</th>
+                                <th class="py-3 px-2 text-left">Temp (°C)</th>
+                                <th class="py-3 px-2 text-left">RH (%)</th>
+                                <th class="py-3 px-2 text-left">WBGT (°C)</th>
+                                <!-- Removed Actions column header -->
+                            </tr>
+                        </thead>
+                        <tbody id="heatStressList" class="text-gray-600 text-sm font-light">
+                            <!-- Heat stress entries will be dynamically inserted here by JavaScript -->
+                            <tr id="noHeatStressMessageRow" class="hidden">
+                                <td colspan="5" class="py-3 px-2 text-center text-gray-500">No readings yet.</td> <!-- Updated colspan -->
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <button id="exportHeatStressCsvBtn"
+                        class="w-full mt-4 bg-green-600 text-white py-2 rounded-xl text-lg font-bold hover:bg-green-700 transition-colors duration-300 shadow-md">
+                    Export to CSV
+                </button>
+
+                <button id="takeHeatStressScreenshotBtn"
+                        class="w-full mt-2 bg-blue-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-blue-600 transition-colors duration-300 shadow-md">
+                    Take Screenshot
+                </button>
+
+                <button id="resetHeatStressBtn"
+                        class="w-full mt-2 bg-red-500 text-white py-2 rounded-xl text-lg font-bold hover:bg-red-600 transition-colors duration-300 shadow-md">
+                    Reset All Readings
+                </button>
+            </div>
+        </div>
+
 
     </div>
 
@@ -391,9 +503,11 @@
             const timeCalculationSection = document.getElementById('timeCalculationSection');
             const agencyRecordSection = document.getElementById('agencyRecordSection');
             const chemicalInventorySection = document.getElementById('chemicalInventorySection');
+            const heatStressMonitorSection = document.getElementById('heatStressMonitorSection');
             const navTimeCalcBtn = document.getElementById('navTimeCalc');
             const navAgencyRecordBtn = document.getElementById('navAgencyRecord');
             const navChemicalInventoryBtn = document.getElementById('navChemicalInventory');
+            const navHeatStressMonitorBtn = document.getElementById('navHeatStressMonitor');
 
             // Get references to calculator-specific elements
             const hoursToSubtractInput = document.getElementById('hoursToSubtract');
@@ -406,6 +520,8 @@
             const calculationHistoryList = document.getElementById('calculationHistoryList');
             const noHistoryMessageRow = document.getElementById('noHistoryMessageRow');
             const resetHistoryBtn = document.getElementById('resetHistoryBtn');
+            const takeTimeCalcScreenshotBtn = document.getElementById('takeTimeCalcScreenshotBtn');
+
 
             // Get references to agency record-specific elements
             const agencyNameInput = document.getElementById('agencyName');
@@ -419,6 +535,7 @@
             const resetAgencyRecordsBtnAgency = document.getElementById('resetAgencyRecordsBtn');
             const undoDeleteRecordBtn = document.getElementById('undoDeleteRecordBtn');
             const exportAgencyRecordsCsvBtn = document.getElementById('exportAgencyRecordsCsvBtn');
+            const takeAgencyScreenshotBtn = document.getElementById('takeAgencyScreenshotBtn');
 
 
             // Get references to chemical inventory-specific elements
@@ -434,9 +551,23 @@
             const exportChemicalsCsvBtnChem = document.getElementById('exportChemicalsCsvBtn');
 
 
+            // Get references to heat stress monitor-specific elements (UPDATED)
+            const locationButtons = document.querySelectorAll('.location-button');
+            const heatStressTemperatureInput = document.getElementById('heatStressTemperature');
+            const heatStressRHInput = document.getElementById('heatStressRH');
+            const heatStressWBGTInput = document.getElementById('heatStressWBGT');
+            const recordHeatStressBtn = document.getElementById('recordHeatStressBtn');
+            const heatStressErrorBox = document.getElementById('heatStressErrorBox');
+            const heatStressList = document.getElementById('heatStressList');
+            const noHeatStressMessageRow = document.getElementById('noHeatStressMessageRow');
+            const resetHeatStressBtn = document.getElementById('resetHeatStressBtn');
+            const exportHeatStressCsvBtn = document.getElementById('exportHeatStressCsvBtn');
+            const takeHeatStressScreenshotBtn = document.getElementById('takeHeatStressScreenshotBtn');
+
+
             // Confirmation message box elements
             const confirmMessageBox = document.getElementById('confirmMessageBox');
-            const confirmMessageText = document = document.getElementById('confirmMessageText');
+            const confirmMessageText = document.getElementById('confirmMessageText');
             const confirmYesBtn = document.getElementById('confirmYesBtn');
             const confirmNoBtn = document.getElementById('confirmNoBtn');
 
@@ -445,6 +576,8 @@
             let calculationHistory = JSON.parse(localStorage.getItem('timeCalcHistory')) || [];
             let agencyRecords = JSON.parse(localStorage.getItem('agencyRecords')) || [];
             let chemicalInventory = JSON.parse(localStorage.getItem('chemicalInventory')) || [];
+            let heatStressReadings = JSON.parse(localStorage.getItem('heatStressReadings')) || [];
+
 
             // Variables for undo functionality (for Agency Records)
             let lastStateBeforeActionAgency = null;
@@ -457,13 +590,15 @@
             let lastDeletedRecordIndexChemical = -1;
 
             // Generic confirmation dialog variables
-            let pendingActionSection = null; // 'agency' or 'chemical'
+            let pendingActionSection = null; // 'agency' or 'chemical' or 'heatStress'
             let pendingActionType = null; // 'delete' or 'reset'
             let pendingIndex = -1; // Stores index for delete action
 
 
             let selectedOption = 'A'; // Default selected option for Time Calculation
             let selectedShift = 'D1'; // Default selected shift for Chemical Inventory
+            let selectedLocation = 'Filler'; // Default selected location for Heat Stress Monitor
+
 
             /**
              * Pads a number with a leading zero if it's less than 10.
@@ -471,6 +606,20 @@
              * @returns {string} The padded number as a string.
              */
             const padZero = (num) => num.toString().padStart(2, '0');
+
+            /**
+             * Shows a custom message box with a given message.
+             * @param {string} message - The message to display.
+             */
+            const showMessageBox = (message) => {
+                const messageBox = document.createElement('div');
+                messageBox.classList.add('info-message-box', 'fixed', 'p-4', 'rounded-lg', 'shadow-lg', 'bg-blue-100', 'border', 'border-blue-300', 'text-center');
+                messageBox.innerHTML = `
+                    <p class="text-lg font-semibold text-gray-800 mb-4">${message}</p>
+                    <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors" onclick="this.parentElement.remove()">OK</button>
+                `;
+                document.body.appendChild(messageBox);
+            };
 
             /**
              * Function to switch between sections.
@@ -481,11 +630,13 @@
                 timeCalculationSection.classList.add('hidden');
                 agencyRecordSection.classList.add('hidden');
                 chemicalInventorySection.classList.add('hidden');
+                heatStressMonitorSection.classList.add('hidden');
 
                 // Remove active class from all nav buttons
                 navTimeCalcBtn.classList.remove('active');
                 navAgencyRecordBtn.classList.remove('active');
                 navChemicalInventoryBtn.classList.remove('active');
+                navHeatStressMonitorBtn.classList.remove('active');
 
                 // Show the selected section and add active class to its button
                 if (sectionToShowId === 'timeCalculationSection') {
@@ -504,6 +655,15 @@
                     if (defaultShiftButton) {
                         defaultShiftButton.classList.add('selected');
                     }
+                } else if (sectionToShowId === 'heatStressMonitorSection') {
+                    heatStressMonitorSection.classList.remove('hidden');
+                    navHeatStressMonitorBtn.classList.add('active');
+                    renderHeatStressReadings(); // Render heat stress readings when switching
+                    // Ensure a location button is selected when showing this section
+                    const defaultLocationButton = document.querySelector(`.location-button[data-location="${selectedLocation}"]`);
+                    if (defaultLocationButton) {
+                        defaultLocationButton.classList.add('selected');
+                    }
                 }
             };
 
@@ -511,6 +671,7 @@
             navTimeCalcBtn.addEventListener('click', () => showSection('timeCalculationSection'));
             navAgencyRecordBtn.addEventListener('click', () => showSection('agencyRecordSection'));
             navChemicalInventoryBtn.addEventListener('click', () => showSection('chemicalInventorySection'));
+            navHeatStressMonitorBtn.addEventListener('click', () => showSection('heatStressMonitorSection'));
 
             // Initially show the CIP Time section
             showSection('timeCalculationSection');
@@ -680,6 +841,10 @@
 
                 // Render updated history
                 renderHistory();
+
+                // Reset input fields after calculation
+                hoursToSubtractInput.value = ''; // Reset to empty
+                minutesToSubtractInput.value = ''; // Reset to empty
             };
 
             /**
@@ -871,8 +1036,7 @@
              */
             const exportAgencyRecordsToCsv = () => {
                 if (agencyRecords.length === 0) {
-                    agencyRecordErrorBox.classList.remove('hidden');
-                    agencyRecordErrorBox.textContent = 'No agency records to export.';
+                    showMessageBox('No agency records to export.');
                     return;
                 }
 
@@ -900,6 +1064,34 @@
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href); // Clean up the object URL
+            };
+
+            /**
+             * Takes a screenshot of the agency record table and triggers a download.
+             */
+            const takeAgencyScreenshot = () => {
+                // Target only the table element within the history container
+                const targetElement = document.getElementById('agencyRecordTable'); 
+
+                if (agencyRecords.length === 0) {
+                    showMessageBox('No agency records to screenshot. Please add some entries first.');
+                    return;
+                }
+
+                html2canvas(targetElement, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true // Important if any content is from other origins
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'agency_records.png';
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link); // Append to body to make it clickable
+                    link.click(); // Programmatically click the link to trigger download
+                    document.body.removeChild(link); // Clean up the temporary link
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    showMessageBox('Failed to take screenshot. Please try again.');
+                });
             };
 
 
@@ -1117,8 +1309,14 @@
             /**
              * Takes a screenshot of the chemical inventory table and triggers a download.
              */
-            const takeChemicalInventoryScreenshot = () => {
-                const targetElement = document.getElementById('chemicalInventoryHistoryContainer'); // Target the container with the table
+            const takeChemicalScreenshot = () => {
+                // Target only the table element within the history container
+                const targetElement = document.getElementById('chemicalInventoryTable'); 
+
+                if (chemicalInventory.length === 0) {
+                    showMessageBox('No chemical inventory to screenshot. Please add some entries first.');
+                    return;
+                }
 
                 html2canvas(targetElement, {
                     scale: 2, // Increase scale for better quality
@@ -1132,7 +1330,7 @@
                     document.body.removeChild(link); // Clean up the temporary link
                 }).catch(error => {
                     console.error('Error taking screenshot:', error);
-                    alert('Failed to take screenshot. Please try again.'); // Use a simple alert for now, could be a custom message box
+                    showMessageBox('Failed to take screenshot. Please try again.');
                 });
             };
 
@@ -1141,8 +1339,7 @@
              */
             const exportChemicalsToCsv = () => {
                 if (chemicalInventory.length === 0) {
-                    chemicalInventoryErrorBox.classList.remove('hidden');
-                    chemicalInventoryErrorBox.textContent = 'No chemical entries to export.';
+                    showMessageBox('No chemical entries to export.');
                     return;
                 }
 
@@ -1173,11 +1370,185 @@
                 URL.revokeObjectURL(link.href); // Clean up the object URL
             };
 
+            /* --- Heat Stress Monitor Functions (UPDATED) --- */
+
+            /**
+             * Handles the selection of location buttons.
+             * @param {Event} event - The click event.
+             */
+            const handleLocationButtonClick = (event) => {
+                // Remove 'selected' class from all location buttons
+                locationButtons.forEach(button => {
+                    button.classList.remove('selected');
+                });
+                // Add 'selected' class to the clicked button
+                event.currentTarget.classList.add('selected');
+                // Update the selectedLocation variable
+                selectedLocation = event.currentTarget.dataset.location;
+            };
+
+            // Add event listeners to location buttons
+            locationButtons.forEach(button => {
+                button.addEventListener('click', handleLocationButtonClick);
+            });
+
+            // Initialize the default selected location button
+            const defaultLocationButton = document.querySelector(`.location-button[data-location="${selectedLocation}"]`);
+            if (defaultLocationButton) {
+                defaultLocationButton.classList.add('selected');
+            }
+
+            /**
+             * Renders the heat stress readings to the display.
+             */
+            const renderHeatStressReadings = () => {
+                heatStressList.innerHTML = ''; // Clear previous entries
+                if (heatStressReadings.length === 0) {
+                    noHeatStressMessageRow.classList.remove('hidden');
+                    heatStressList.appendChild(noHeatStressMessageRow);
+                } else {
+                    noHeatStressMessageRow.classList.add('hidden');
+                    heatStressReadings.forEach((reading, index) => {
+                        const readingRow = document.createElement('tr');
+                        readingRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
+                        
+                        // Removed 'Date' and 'Actions' columns from rendering
+                        readingRow.innerHTML = `
+                            <td class="py-3 px-2 text-left">${reading.time}</td>
+                            <td class="py-3 px-2 text-left">${reading.location}</td>
+                            <td class="py-3 px-2 text-left">${reading.temperature}</td>
+                            <td class="py-3 px-2 text-left">${reading.rh}</td>
+                            <td class="py-3 px-2 text-left">${reading.wbgt}</td>
+                        `;
+                        heatStressList.appendChild(readingRow);
+                    });
+                }
+                // Removed event listeners for delete buttons as the column is gone
+            };
+
+            /**
+             * Records a new heat stress reading.
+             */
+            const recordHeatStressReading = () => {
+                heatStressErrorBox.classList.add('hidden'); // Hide previous errors
+                heatStressErrorBox.textContent = ''; // Clear previous message
+
+                const location = selectedLocation;
+                const temperature = parseFloat(heatStressTemperatureInput.value);
+                const rh = parseFloat(heatStressRHInput.value);
+                const wbgt = parseFloat(heatStressWBGTInput.value);
+
+                // Get current date and time
+                const now = new Date();
+                const dateFormatted = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: '2-digit' }); // e.g., "Wed Aug 01, 25"
+                const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); // e.g., "03:30:00 PM"
+
+
+                // Basic validation for all three new inputs
+                if (!location || isNaN(temperature) || isNaN(rh) || isNaN(wbgt) || temperature < -50 || rh < 0 || rh > 100 || wbgt < -50) { // Added basic range validation
+                    heatStressErrorBox.classList.remove('hidden');
+                    heatStressErrorBox.textContent = 'Please select a location and enter valid numeric values for Temperature, RH% (0-100), and WBGT.';
+                    return;
+                }
+
+                heatStressReadings.push({
+                    date: dateFormatted, // Still store date for CSV export, even if not displayed
+                    time: timeFormatted,
+                    location: location,
+                    temperature: temperature,
+                    rh: rh,
+                    wbgt: wbgt
+                });
+
+                // Clear input fields
+                heatStressTemperatureInput.value = '';
+                heatStressRHInput.value = '';
+                heatStressWBGTInput.value = '';
+
+                localStorage.setItem('heatStressReadings', JSON.stringify(heatStressReadings));
+                renderHeatStressReadings();
+            };
+
+            /**
+             * Resets all heat stress readings after confirmation.
+             */
+            const performResetHeatStressReadings = () => {
+                heatStressReadings = [];
+                localStorage.removeItem('heatStressReadings');
+                renderHeatStressReadings();
+            };
+
+            /**
+             * Exports the heat stress readings data to a CSV file.
+             */
+            const exportHeatStressToCsv = () => {
+                if (heatStressReadings.length === 0) {
+                    showMessageBox('No heat stress readings to export.');
+                    return;
+                }
+
+                // Define CSV headers including the new metrics
+                const headers = ["Date", "Time", "Location", "Temperature (°C)", "RH (%)", "WBGT (°C)"];
+                
+                // Map data to CSV rows, ensuring all new metrics are included
+                const rows = heatStressReadings.map(entry => [
+                    `"${entry.date}"`,
+                    `"${entry.time}"`,
+                    `"${entry.location.replace(/"/g, '""')}"`,
+                    entry.temperature,
+                    entry.rh,
+                    entry.wbgt
+                ].join(','));
+
+                // Combine headers and rows
+                const csvContent = [headers.join(','), ...rows].join('\n');
+
+                // Create a Blob from the CSV content
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+                // Create a download link and trigger click
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'heat_stress_readings.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            };
+
+            /**
+             * Takes a screenshot of the heat stress readings table and triggers a download.
+             */
+            const takeHeatStressScreenshot = () => {
+                // Target only the table element within the history container
+                const targetElement = document.getElementById('heatStressTable'); 
+
+                if (heatStressReadings.length === 0) {
+                    showMessageBox('No heat stress readings to screenshot. Please add some entries first.');
+                    return;
+                }
+
+                html2canvas(targetElement, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true // Important if any content is from other origins
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'heat_stress_readings.png';
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link); // Append to body to make it clickable
+                    link.click(); // Programmatically click the link to trigger download
+                    document.body.removeChild(link); // Clean up the temporary link
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    showMessageBox('Failed to take screenshot. Please try again.');
+                });
+            };
+
 
             /* --- Generic Confirmation Dialog Functions --- */
             /**
              * Shows the generic confirmation dialog.
-             * @param {string} section - 'agency' or 'chemical'
+             * @param {string} section - 'agency', 'chemical', or 'heatStress'
              * @param {string} actionType - 'delete' or 'reset'
              * @param {number} [index] - Optional: index of the item to delete for 'delete' action.
              */
@@ -1193,6 +1564,8 @@
                         confirmMessageText.textContent = `Are you sure you want to reset all agency records? This action cannot be undone.`;
                     } else if (section === 'chemical') {
                         confirmMessageText.textContent = `Are you sure you want to reset all chemical inventory? This action cannot be undone.`;
+                    } else if (section === 'heatStress') {
+                        confirmMessageText.textContent = `Are you sure you want to reset all heat stress readings? This action cannot be undone.`;
                     }
                 }
                 confirmMessageBox.classList.remove('hidden');
@@ -1215,6 +1588,15 @@
                         performDeleteChemical(pendingIndex);
                     } else if (pendingActionType === 'reset') {
                         performResetChemicalInventory();
+                    }
+                } else if (pendingActionSection === 'heatStress') {
+                    if (pendingActionType === 'delete' && pendingIndex !== -1) {
+                        // For heat stress, direct delete is fine as there's no undo for single items yet.
+                        // heatStressReadings.splice(pendingIndex, 1); // This line was removed as per previous request to remove 'Actions' column
+                        // localStorage.setItem('heatStressReadings', JSON.stringify(heatStressReadings));
+                        // renderHeatStressReadings();
+                    } else if (pendingActionType === 'reset') {
+                        performResetHeatStressReadings();
                     }
                 }
                 // Reset pending state
@@ -1239,22 +1621,111 @@
             resetAgencyRecordsBtnAgency.addEventListener('click', () => showConfirmation('agency', 'reset'));
             undoDeleteRecordBtn.addEventListener('click', handleUndoLastActionAgency);
             exportAgencyRecordsCsvBtn.addEventListener('click', exportAgencyRecordsToCsv);
+            takeAgencyScreenshotBtn.addEventListener('click', takeAgencyScreenshot);
 
 
             // Add event listeners for Chemical Inventory section
             addChemicalBtn.addEventListener('click', addChemical);
             resetChemicalInventoryBtn.addEventListener('click', () => showConfirmation('chemical', 'reset'));
-            takeChemicalScreenshotBtn.addEventListener('click', takeChemicalInventoryScreenshot);
+            takeChemicalScreenshotBtn.addEventListener('click', takeChemicalScreenshot);
             exportChemicalsCsvBtnChem.addEventListener('click', exportChemicalsToCsv);
+
+
+            // Add event listeners for Heat Stress Monitor section (UPDATED)
+            recordHeatStressBtn.addEventListener('click', recordHeatStressReading);
+            resetHeatStressBtn.addEventListener('click', () => showConfirmation('heatStress', 'reset'));
+            exportHeatStressCsvBtn.addEventListener('click', exportHeatStressToCsv);
+            takeHeatStressScreenshotBtn.addEventListener('click', takeHeatStressScreenshot);
+
+            // Auto-tabbing for Heat Stress inputs
+            heatStressTemperatureInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Tab' || event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default tab/enter behavior
+                    heatStressRHInput.focus();
+                }
+            });
+
+            heatStressRHInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Tab' || event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default tab/enter behavior
+                    heatStressWBGTInput.focus();
+                }
+            });
+
+            heatStressWBGTInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Tab' || event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default tab/enter behavior
+                    recordHeatStressBtn.focus(); // Move focus to the "Record Reading" button
+                }
+            });
 
 
             // Event listeners for the generic confirmation dialog buttons
             confirmYesBtn.addEventListener('click', executeConfirmedAction);
             confirmNoBtn.addEventListener('click', cancelConfirmedAction);
 
-            // Initial render of agency records and chemical inventory when page loads
+            // Add event listener for the take screenshot button in CIP Time
+            takeTimeCalcScreenshotBtn.addEventListener('click', () => {
+                const targetElement = document.getElementById('calculationHistoryTable');
+
+                if (calculationHistory.length === 0) {
+                    showMessageBox('No calculation history to screenshot. Please add some entries first.');
+                    return;
+                }
+
+                html2canvas(targetElement, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true // Important if any content is from other origins
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'calculation_history.png';
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    showMessageBox('Failed to take screenshot. Please try again.');
+                });
+            });
+
+            // NEW: Auto-tabbing and Enter key handling for hoursToSubtract field
+            hoursToSubtractInput.addEventListener('input', () => {
+                // Auto-tab on two digits
+                if (hoursToSubtractInput.value.length === 2 && !isNaN(hoursToSubtractInput.value)) {
+                    minutesToSubtractInput.focus();
+                }
+            });
+
+            hoursToSubtractInput.addEventListener('keydown', (event) => {
+                // Tab on Enter key press, regardless of digit count (1 or 2)
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
+                    minutesToSubtractInput.focus();
+                }
+            });
+
+            // NEW: Auto-tabbing and Enter key handling for minutesToSubtract field
+            minutesToSubtractInput.addEventListener('input', () => {
+                // Auto-tab on two digits
+                if (minutesToSubtractInput.value.length === 2 && !isNaN(minutesToSubtractInput.value)) {
+                    calculateBtn.focus(); // Move focus to the Calculate button
+                }
+            });
+
+            minutesToSubtractInput.addEventListener('keydown', (event) => {
+                // Tab on Enter key press, regardless of digit count (1 or 2)
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default Enter key behavior
+                    calculateBtn.focus(); // Move focus to the Calculate button
+                }
+            });
+
+
+            // Initial render of all sections when page loads
             renderAgencyRecords();
             renderChemicalInventory();
+            renderHeatStressReadings();
         });
     </script>
 </body>
