@@ -440,7 +440,7 @@
 
                 <!-- Error Message for Heat Stress Monitor inputs -->
                 <div id="heatStressErrorBox" class="bg-red-100 p-3 rounded-xl border border-red-200 text-red-700 text-center font-medium hidden">
-                    Please select a location and enter valid values for Temperature, RH%, and WBGT.
+                    Please select a location and enter valid numbers for Temperature, RH% (0-100), and WBGT.
                 </div>
             </div>
 
@@ -516,14 +516,297 @@
             const calculateBtn = document.getElementById('calculateBtn');
             const inputErrorBox = document.getElementById('inputErrorBox');
             const duplicateErrorBox = document.getElementById('duplicateErrorBox');
-            const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+            const calculationHistoryTable = document.getElementById('calculationHistoryTable');
             const calculationHistoryList = document.getElementById('calculationHistoryList');
             const noHistoryMessageRow = document.getElementById('noHistoryMessageRow');
             const resetHistoryBtn = document.getElementById('resetHistoryBtn');
             const takeTimeCalcScreenshotBtn = document.getElementById('takeTimeCalcScreenshotBtn');
 
+            // Global variables to store state
+            let selectedOption = null;
+            let calculatedOptions = new Set(); // To track which options have been calculated
 
-            // Get references to agency record-specific elements
+            // Function to update current time display
+            function updateCurrentTime() {
+                const now = new Date();
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12; // The hour '0' should be '12'
+                const formattedHours = String(hours).padStart(2, '0');
+                document.getElementById('currentTimeDisplay').textContent = `${formattedHours}:${minutes} ${ampm}`;
+            }
+
+            // Update current time every second
+            setInterval(updateCurrentTime, 1000);
+            updateCurrentTime(); // Initial call to display time immediately
+
+            // --- CIP Time Calculation Logic ---
+
+            // Event listeners for option buttons
+            optionButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Remove 'selected' class from all option buttons
+                    optionButtons.forEach(btn => btn.classList.remove('selected'));
+                    // Add 'selected' class to the clicked button
+                    button.classList.add('selected');
+                    selectedOption = button.dataset.option;
+                    hideError(duplicateErrorBox); // Hide duplicate error if an option is selected
+                });
+            });
+
+            // Function to show an error message
+            function showError(element, message) {
+                element.textContent = message;
+                element.classList.remove('hidden');
+            }
+
+            // Function to hide an error message
+            function hideError(element) {
+                element.classList.add('hidden');
+            }
+
+            // Main calculation function
+            calculateBtn.addEventListener('click', () => {
+                const hoursToSubtract = parseInt(hoursToSubtractInput.value);
+                const minutesToSubtract = parseInt(minutesToSubtractInput.value);
+
+                // Input validation
+                if (isNaN(hoursToSubtract) || isNaN(minutesToSubtract) || hoursToSubtract < 0 || minutesToSubtract < 0 || minutesToSubtract > 59) {
+                    showError(inputErrorBox, "Please enter valid numbers for hours (>=0) and minutes (0-59).");
+                    return;
+                } else {
+                    hideError(inputErrorBox);
+                }
+
+                if (!selectedOption) {
+                    showError(inputErrorBox, "Please select an option (A, B, C, or D).");
+                    return;
+                }
+
+                if (calculatedOptions.has(selectedOption)) {
+                    showError(duplicateErrorBox, `Option ${selectedOption} has already been calculated. Please reset history to re-calculate.`);
+                    return;
+                }
+
+                // --- CORE LOGIC FIX STARTS HERE ---
+                const BASE_HOURS = 45;
+                const totalBaseMinutes = BASE_HOURS * 60; // 45 hours in minutes
+
+                const inputTotalMinutes = hoursToSubtract * 60 + minutesToSubtract;
+
+                // Calculate the remaining time from 45 hours
+                let remainingMinutesFrom45 = totalBaseMinutes - inputTotalMinutes;
+
+                // Handle cases where subtraction results in negative time (e.g., input > 45 hours)
+                if (remainingMinutesFrom45 < 0) {
+                    showMessageBox("Warning: Input time exceeds 45 hours. Calculation might be unexpected.", "warning");
+                    remainingMinutesFrom45 = 0; // Or handle as per specific business logic, e.g., show error, cap at 0, etc.
+                }
+
+                // Get current time
+                const now = new Date();
+                let currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+                // Add the remaining time from 45 hours to the current time
+                let finalTotalMinutes = currentTotalMinutes + remainingMinutesFrom45;
+
+                // Calculate final hours and minutes, handling day rollover
+                let finalHours = Math.floor(finalTotalMinutes / 60);
+                let finalMinutes = finalTotalMinutes % 60;
+
+                let finalDay = now.toLocaleDateString('en-US', { weekday: 'short' }); // Get current day (e.g., Mon, Tue)
+
+                // If finalHours exceeds 24, it means it rolled over to the next day
+                if (finalHours >= 24) {
+                    finalHours %= 24; // Adjust hours for 24-hour format
+                    // Increment day (this is a simplified approach, for full date handling, you'd adjust the Date object)
+                    const nextDayDate = new Date(now);
+                    nextDayDate.setDate(now.getDate() + 1);
+                    finalDay = nextDayDate.toLocaleDateString('en-US', { weekday: 'short' });
+                }
+
+                // Format the resulting time in AM/PM format
+                let displayHours = finalHours % 12;
+                displayHours = displayHours ? displayHours : 12; // the hour '0' should be '12'
+                const ampm = finalHours >= 12 ? 'PM' : 'AM';
+                const formattedResultTime = `${String(displayHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')} ${ampm}`;
+
+                // Add to history
+                addCalculationToHistory(selectedOption, finalDay, formattedResultTime);
+                calculatedOptions.add(selectedOption); // Mark option as calculated
+
+                // Clear inputs after calculation
+                hoursToSubtractInput.value = '';
+                minutesToSubtractInput.value = '';
+                optionButtons.forEach(btn => btn.classList.remove('selected'));
+                selectedOption = null;
+            });
+
+            // Function to add calculation to history table
+            function addCalculationToHistory(option, day, time) {
+                const newRow = calculationHistoryList.insertRow();
+                newRow.className = "hover:bg-gray-50"; // Add hover effect for table rows
+
+                const optionCell = newRow.insertCell();
+                optionCell.textContent = option;
+                optionCell.className = "py-3 px-2 whitespace-nowrap font-medium text-gray-900";
+
+                const dayCell = newRow.insertCell();
+                dayCell.textContent = day;
+                dayCell.className = "py-3 px-2 whitespace-nowrap";
+
+                const timeCell = newRow.insertCell();
+                timeCell.textContent = time;
+                timeCell.className = "py-3 px-2 whitespace-nowrap";
+
+                // Hide "No calculations yet" message if history is not empty
+                if (noHistoryMessageRow && !noHistoryMessageRow.classList.contains('hidden')) {
+                    noHistoryMessageRow.classList.add('hidden');
+                }
+            }
+
+            // Reset History Button
+            resetHistoryBtn.addEventListener('click', () => {
+                showConfirm("Are you sure you want to reset all CIP Time history?", () => {
+                    calculationHistoryList.innerHTML = '<tr id="noHistoryMessageRow" class="hidden"><td colspan="3" class="py-3 px-2 text-center text-gray-500">No calculations yet.</td></tr>';
+                    calculatedOptions.clear(); // Clear the set of calculated options
+                    noHistoryMessageRow.classList.remove('hidden'); // Show the "No calculations yet" message
+                    hideError(duplicateErrorBox); // Hide duplicate error
+                    hideError(inputErrorBox); // Hide input error
+                    // Reset selected option and button styles
+                    optionButtons.forEach(btn => btn.classList.remove('selected'));
+                    selectedOption = null;
+                    showMessageBox("CIP Time history has been reset.", "success");
+                });
+            });
+
+            // Screenshot functionality for CIP Time
+            takeTimeCalcScreenshotBtn.addEventListener('click', () => {
+                html2canvas(timeCalculationSection, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true // Enable CORS for images if any
+                }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = 'CIP_Time_Screenshot.png';
+                    link.href = imgData;
+                    link.click();
+                    showMessageBox("Screenshot saved!", "success");
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    showMessageBox("Failed to take screenshot.", "error");
+                });
+            });
+
+            // --- General Message Box Functions ---
+            const infoMessageBox = document.createElement('div');
+            infoMessageBox.id = 'infoMessageBox';
+            infoMessageBox.className = 'info-message-box hidden';
+            infoMessageBox.innerHTML = `<p id="infoMessageText"></p><button id="infoMessageCloseBtn">OK</button>`;
+            document.body.appendChild(infoMessageBox);
+
+            document.getElementById('infoMessageCloseBtn').addEventListener('click', () => {
+                infoMessageBox.classList.add('hidden');
+            });
+
+            function showMessageBox(message, type = 'info') {
+                const infoMessageText = document.getElementById('infoMessageText');
+                infoMessageText.textContent = message;
+                infoMessageBox.className = `info-message-box ${type === 'error' ? 'bg-red-100 border-red-400 text-red-700' : type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-blue-100 border-blue-400 text-blue-700'}`;
+                infoMessageBox.classList.remove('hidden');
+            }
+
+            // --- Confirmation Message Box Functions ---
+            const confirmMessageBox = document.getElementById('confirmMessageBox');
+            const confirmMessageText = document.getElementById('confirmMessageText');
+            const confirmYesBtn = document.getElementById('confirmYesBtn');
+            const confirmNoBtn = document.getElementById('confirmNoBtn');
+            let confirmCallback = null; // Stores the callback function for confirmation
+
+            function showConfirm(message, callback) {
+                confirmMessageText.textContent = message;
+                confirmCallback = callback;
+                confirmMessageBox.classList.remove('hidden');
+            }
+
+            confirmYesBtn.addEventListener('click', () => {
+                if (confirmCallback) {
+                    confirmCallback();
+                }
+                confirmMessageBox.classList.add('hidden');
+            });
+
+            confirmNoBtn.addEventListener('click', () => {
+                confirmMessageBox.classList.add('hidden');
+                confirmCallback = null; // Clear the callback
+            });
+
+            // --- Navigation Logic ---
+            const sections = {
+                timeCalculationSection: timeCalculationSection,
+                agencyRecordSection: agencyRecordSection,
+                chemicalInventorySection: chemicalInventorySection,
+                heatStressMonitorSection: heatStressMonitorSection
+            };
+
+            const navButtons = {
+                navTimeCalc: navTimeCalcBtn,
+                navAgencyRecord: navAgencyRecordBtn,
+                navChemicalInventory: navChemicalInventoryBtn,
+                navHeatStressMonitor: navHeatStressMonitorBtn
+            };
+
+            function showSection(sectionId) {
+                // Hide all sections, ensuring the element exists before accessing classList
+                for (const id in sections) {
+                    const sectionElement = sections[id];
+                    if (sectionElement) {
+                        sectionElement.classList.add('hidden');
+                    } else {
+                        console.warn(`Section element with ID ${id} not found.`);
+                    }
+                }
+
+                // Show the selected section, ensuring the element exists
+                const selectedSectionElement = sections[sectionId];
+                if (selectedSectionElement) {
+                    selectedSectionElement.classList.remove('hidden');
+                } else {
+                    console.error(`Selected section element with ID ${sectionId} not found.`);
+                    return; // Exit if the selected section doesn't exist
+                }
+
+                // Deactivate all navigation buttons, ensuring the element exists
+                for (const id in navButtons) {
+                    const navButtonElement = navButtons[id];
+                    if (navButtonElement) {
+                        navButtonElement.classList.remove('active');
+                    } else {
+                        console.warn(`Navigation button element with ID ${id} not found.`);
+                    }
+                }
+
+                // Activate the selected navigation button, ensuring the element exists
+                const targetNavButtonId = `nav${sectionId.replace('Section', '')}`;
+                const targetNavButtonElement = navButtons[targetNavButtonId];
+                if (targetNavButtonElement) {
+                    targetNavButtonElement.classList.add('active');
+                } else {
+                    console.error(`Target navigation button element with ID ${targetNavButtonId} not found.`);
+                }
+            }
+
+            navTimeCalcBtn.addEventListener('click', () => showSection('timeCalculationSection'));
+            navAgencyRecordBtn.addEventListener('click', () => showSection('agencyRecordSection'));
+            navChemicalInventoryBtn.addEventListener('click', () => showSection('chemicalInventorySection'));
+            navHeatStressMonitorBtn.addEventListener('click', () => showSection('heatStressMonitorSection'));
+
+            // Initial section display
+            showSection('timeCalculationSection');
+
+            // --- Agency Record Section Logic ---
             const agencyNameInput = document.getElementById('agencyName');
             const agencyTimeHourInput = document.getElementById('agencyTimeHour');
             const agencyTimeMinuteInput = document.getElementById('agencyTimeMinute');
@@ -532,13 +815,170 @@
             const agencyRecordErrorBox = document.getElementById('agencyRecordErrorBox');
             const agencyRecordList = document.getElementById('agencyRecordList');
             const noAgencyRecordsMessageRowAgency = document.getElementById('noAgencyRecordsMessageRowAgency');
-            const resetAgencyRecordsBtnAgency = document.getElementById('resetAgencyRecordsBtn');
-            const undoDeleteRecordBtn = document.getElementById('undoDeleteRecordBtn');
             const exportAgencyRecordsCsvBtn = document.getElementById('exportAgencyRecordsCsvBtn');
             const takeAgencyScreenshotBtn = document.getElementById('takeAgencyScreenshotBtn');
+            const undoDeleteRecordBtn = document.getElementById('undoDeleteRecordBtn');
+            const resetAgencyRecordsBtn = document.getElementById('resetAgencyRecordsBtn');
 
+            let agencyRecords = [];
+            let lastDeletedAgencyRecord = null; // To store the last deleted record for undo functionality
 
-            // Get references to chemical inventory-specific elements
+            // Load agency records from local storage on startup
+            loadAgencyRecords();
+
+            function saveAgencyRecords() {
+                localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
+            }
+
+            function loadAgencyRecords() {
+                const storedRecords = localStorage.getItem('agencyRecords');
+                if (storedRecords) {
+                    agencyRecords = JSON.parse(storedRecords);
+                    renderAgencyRecords();
+                } else {
+                    showNoAgencyRecordsMessage();
+                }
+            }
+
+            function renderAgencyRecords() {
+                agencyRecordList.innerHTML = ''; // Clear existing records
+                if (agencyRecords.length === 0) {
+                    showNoAgencyRecordsMessage();
+                    return;
+                }
+                hideNoAgencyRecordsMessage();
+                agencyRecords.forEach((record, index) => {
+                    const newRow = agencyRecordList.insertRow();
+                    newRow.className = "bg-white border-b border-gray-200 hover:bg-gray-50";
+                    newRow.setAttribute('data-index', index); // Add data-index for easy reference
+
+                    newRow.insertCell().textContent = record.name;
+                    newRow.insertCell().textContent = record.date;
+                    newRow.insertCell().textContent = record.time;
+
+                    const actionsCell = newRow.insertCell();
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                    deleteBtn.className = 'delete-record-btn';
+                    deleteBtn.title = 'Delete Record';
+                    deleteBtn.addEventListener('click', () => deleteAgencyRecord(index));
+                    actionsCell.appendChild(deleteBtn);
+                });
+            }
+
+            function showNoAgencyRecordsMessage() {
+                if (noAgencyRecordsMessageRowAgency) {
+                    noAgencyRecordsMessageRowAgency.classList.remove('hidden');
+                }
+            }
+
+            function hideNoAgencyRecordsMessage() {
+                if (noAgencyRecordsMessageRowAgency) {
+                    noAgencyRecordsMessageRowAgency.classList.add('hidden');
+                }
+            }
+
+            saveAgencyRecordBtn.addEventListener('click', () => {
+                const name = agencyNameInput.value.trim();
+                const hour = parseInt(agencyTimeHourInput.value);
+                const minute = parseInt(agencyTimeMinuteInput.value);
+                const ampm = agencyTimeAmPmSelect.value;
+
+                if (!name || isNaN(hour) || isNaN(minute) || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+                    showError(agencyRecordErrorBox, "Please fill in all fields correctly.");
+                    return;
+                } else {
+                    hideError(agencyRecordErrorBox);
+                }
+
+                const now = new Date();
+                const date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${ampm}`;
+
+                const newRecord = { name, date, time };
+                agencyRecords.push(newRecord);
+                saveAgencyRecords();
+                renderAgencyRecords();
+
+                // Clear form fields
+                agencyNameInput.value = '';
+                agencyTimeHourInput.value = '12';
+                agencyTimeMinuteInput.value = '00';
+                agencyTimeAmPmSelect.value = 'AM';
+
+                showMessageBox("Agency record saved successfully!", "success");
+            });
+
+            function deleteAgencyRecord(index) {
+                showConfirm("Are you sure you want to delete this record?", () => {
+                    lastDeletedAgencyRecord = { record: agencyRecords[index], index: index }; // Store for undo
+                    agencyRecords.splice(index, 1);
+                    saveAgencyRecords();
+                    renderAgencyRecords();
+                    undoDeleteRecordBtn.disabled = false; // Enable undo button
+                    showMessageBox("Record deleted.", "success");
+                });
+            }
+
+            undoDeleteRecordBtn.addEventListener('click', () => {
+                if (lastDeletedAgencyRecord) {
+                    agencyRecords.splice(lastDeletedAgencyRecord.index, 0, lastDeletedAgencyRecord.record);
+                    saveAgencyRecords();
+                    renderAgencyRecords();
+                    lastDeletedAgencyRecord = null; // Clear undo data
+                    undoDeleteRecordBtn.disabled = true; // Disable undo button
+                    showMessageBox("Last action undone.", "success");
+                }
+            });
+
+            resetAgencyRecordsBtn.addEventListener('click', () => {
+                showConfirm("Are you sure you want to delete ALL agency records? This cannot be undone.", () => {
+                    agencyRecords = [];
+                    saveAgencyRecords();
+                    renderAgencyRecords();
+                    lastDeletedAgencyRecord = null; // Clear undo data
+                    undoDeleteRecordBtn.disabled = true; // Disable undo button
+                    showMessageBox("All agency records have been reset.", "success");
+                });
+            });
+
+            exportAgencyRecordsCsvBtn.addEventListener('click', () => {
+                if (agencyRecords.length === 0) {
+                    showMessageBox("No records to export.", "warning");
+                    return;
+                }
+                const headers = ["Name", "Date", "Time"];
+                const csvRows = [
+                    headers.join(','),
+                    ...agencyRecords.map(record => `${record.name},${record.date},${record.time}`)
+                ];
+                const csvString = csvRows.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'agency_records.csv';
+                link.click();
+                showMessageBox("Agency records exported to CSV!", "success");
+            });
+
+            takeAgencyScreenshotBtn.addEventListener('click', () => {
+                html2canvas(agencyRecordSection, {
+                    scale: 2,
+                    useCORS: true
+                }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = 'Agency_Record_Screenshot.png';
+                    link.href = imgData;
+                    link.click();
+                    showMessageBox("Screenshot saved!", "success");
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    showMessageBox("Failed to take screenshot.", "error");
+                });
+            });
+
+            // --- Chemical Inventory Section Logic ---
             const chemicalNameSelect = document.getElementById('chemicalNameSelect');
             const chemicalQuantityInput = document.getElementById('chemicalQuantity');
             const shiftButtons = document.querySelectorAll('.shift-button');
@@ -546,12 +986,159 @@
             const chemicalInventoryErrorBox = document.getElementById('chemicalInventoryErrorBox');
             const chemicalInventoryList = document.getElementById('chemicalInventoryList');
             const noChemicalsMessageRow = document.getElementById('noChemicalsMessageRow');
-            const resetChemicalInventoryBtn = document.getElementById('resetChemicalInventoryBtn');
+            const exportChemicalsCsvBtn = document.getElementById('exportChemicalsCsvBtn');
             const takeChemicalScreenshotBtn = document.getElementById('takeChemicalScreenshotBtn');
-            const exportChemicalsCsvBtnChem = document.getElementById('exportChemicalsCsvBtn');
+            const resetChemicalInventoryBtn = document.getElementById('resetChemicalInventoryBtn');
 
+            let chemicalInventory = [];
+            let selectedShift = null;
 
-            // Get references to heat stress monitor-specific elements (UPDATED)
+            // Load chemical inventory from local storage on startup
+            loadChemicalInventory();
+
+            function saveChemicalInventory() {
+                localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
+            }
+
+            function loadChemicalInventory() {
+                const storedInventory = localStorage.getItem('chemicalInventory');
+                if (storedInventory) {
+                    chemicalInventory = JSON.parse(storedInventory);
+                    renderChemicalInventory();
+                } else {
+                    showNoChemicalsMessage();
+                }
+            }
+
+            function renderChemicalInventory() {
+                chemicalInventoryList.innerHTML = ''; // Clear existing entries
+                if (chemicalInventory.length === 0) {
+                    showNoChemicalsMessage();
+                    return;
+                }
+                hideNoChemicalsMessage();
+                chemicalInventory.forEach((item, index) => {
+                    const newRow = chemicalInventoryList.insertRow();
+                    newRow.className = "bg-white border-b border-gray-200 hover:bg-gray-50";
+
+                    newRow.insertCell().textContent = item.date;
+                    newRow.insertCell().textContent = item.shift;
+                    newRow.insertCell().textContent = item.chemical;
+                    newRow.insertCell().textContent = item.quantity;
+
+                    const actionsCell = newRow.insertCell();
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                    deleteBtn.className = 'delete-record-btn';
+                    deleteBtn.title = 'Delete Record';
+                    deleteBtn.addEventListener('click', () => deleteChemicalEntry(index));
+                    actionsCell.appendChild(deleteBtn);
+                });
+            }
+
+            function showNoChemicalsMessage() {
+                if (noChemicalsMessageRow) {
+                    noChemicalsMessageRow.classList.remove('hidden');
+                }
+            }
+
+            function hideNoChemicalsMessage() {
+                if (noChemicalsMessageRow) {
+                    noChemicalsMessageRow.classList.add('hidden');
+                }
+            }
+
+            shiftButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    shiftButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                    selectedShift = button.dataset.shift;
+                });
+            });
+
+            addChemicalBtn.addEventListener('click', () => {
+                const chemical = chemicalNameSelect.value;
+                const quantity = parseFloat(chemicalQuantityInput.value);
+
+                if (!chemical || !selectedShift || isNaN(quantity) || quantity <= 0) {
+                    showError(chemicalInventoryErrorBox, "Please select chemical, shift, and enter a valid quantity.");
+                    return;
+                } else {
+                    hideError(chemicalInventoryErrorBox);
+                }
+
+                const now = new Date();
+                const date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                const newEntry = { date, shift: selectedShift, chemical, quantity };
+                chemicalInventory.push(newEntry);
+                saveChemicalInventory();
+                renderChemicalInventory();
+
+                // Clear form fields
+                chemicalNameSelect.value = '';
+                chemicalQuantityInput.value = '';
+                shiftButtons.forEach(btn => btn.classList.remove('selected'));
+                selectedShift = null;
+
+                showMessageBox("Chemical added to inventory!", "success");
+            });
+
+            function deleteChemicalEntry(index) {
+                showConfirm("Are you sure you want to delete this chemical entry?", () => {
+                    chemicalInventory.splice(index, 1);
+                    saveChemicalInventory();
+                    renderChemicalInventory();
+                    showMessageBox("Chemical entry deleted.", "success");
+                });
+            }
+
+            resetChemicalInventoryBtn.addEventListener('click', () => {
+                showConfirm("Are you sure you want to reset ALL chemical inventory? This cannot be undone.", () => {
+                    chemicalInventory = [];
+                    saveChemicalInventory();
+                    renderChemicalInventory();
+                    showMessageBox("All chemical inventory has been reset.", "success");
+                });
+            });
+
+            exportChemicalsCsvBtn.addEventListener('click', () => {
+                if (chemicalInventory.length === 0) {
+                    showMessageBox("No chemical records to export.", "warning");
+                    return;
+                }
+                const headers = ["Date", "Shift", "Chemical", "Quantity"];
+                const csvRows = [
+                    headers.join(','),
+                    ...chemicalInventory.map(item => `${item.date},${item.shift},${item.chemical},${item.quantity}`)
+                ];
+                const csvString = csvRows.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'chemical_inventory.csv';
+                link.click();
+                showMessageBox("Chemical inventory exported to CSV!", "success");
+            });
+
+            takeChemicalScreenshotBtn.addEventListener('click', () => {
+                html2canvas(chemicalInventorySection, {
+                    scale: 2,
+                    useCORS: true
+                }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = 'Chemical_Inventory_Screenshot.png';
+                    link.href = imgData;
+                    link.click();
+                    showMessageBox("Screenshot saved!", "success");
+                }).catch(error => {
+                    console.error('Error taking screenshot:', error);
+                    showMessageBox("Failed to take screenshot.", "error");
+                });
+            });
+
+            // --- Heat Stress Monitor Section Logic ---
             const locationButtons = document.querySelectorAll('.location-button');
             const heatStressTemperatureInput = document.getElementById('heatStressTemperature');
             const heatStressRHInput = document.getElementById('heatStressRH');
@@ -560,1169 +1147,143 @@
             const heatStressErrorBox = document.getElementById('heatStressErrorBox');
             const heatStressList = document.getElementById('heatStressList');
             const noHeatStressMessageRow = document.getElementById('noHeatStressMessageRow');
-            const resetHeatStressBtn = document.getElementById('resetHeatStressBtn');
             const exportHeatStressCsvBtn = document.getElementById('exportHeatStressCsvBtn');
             const takeHeatStressScreenshotBtn = document.getElementById('takeHeatStressScreenshotBtn');
+            const resetHeatStressBtn = document.getElementById('resetHeatStressBtn');
 
+            let heatStressReadings = [];
+            let selectedLocation = null;
 
-            // Confirmation message box elements
-            const confirmMessageBox = document.getElementById('confirmMessageBox');
-            const confirmMessageText = document.getElementById('confirmMessageText');
-            // FIX: Corrected IDs for confirm buttons
-            const confirmYesBtn = document.getElementById('confirmYesBtn');
-            const confirmNoBtn = document.getElementById('confirmNoBtn');
+            // Load heat stress readings from local storage on startup
+            loadHeatStressReadings();
 
-
-            // Data storage arrays
-            let calculationHistory = JSON.parse(localStorage.getItem('timeCalcHistory')) || [];
-            let agencyRecords = JSON.parse(localStorage.getItem('agencyRecords')) || [];
-            let chemicalInventory = JSON.parse(localStorage.getItem('chemicalInventory')) || [];
-            let heatStressReadings = JSON.parse(localStorage.getItem('heatStressReadings')) || [];
-
-
-            // Variables for undo functionality (for Agency Records)
-            let lastStateBeforeActionAgency = null;
-            let lastActionTypeAgency = null;
-            let lastDeletedRecordIndexAgency = -1;
-
-            // Variables for undo functionality (for Chemical Inventory)
-            let lastStateBeforeActionChemical = null;
-            let lastActionTypeChemical = null;
-            let lastDeletedRecordIndexChemical = -1;
-
-            // Generic confirmation dialog variables
-            let pendingActionSection = null; // 'agency' or 'chemical' or 'heatStress'
-            let pendingActionType = null; // 'delete' or 'reset'
-            let pendingIndex = -1; // Stores index for delete action
-
-
-            let selectedOption = 'A'; // Default selected option for Time Calculation
-            let selectedShift = 'D1'; // Default selected shift for Chemical Inventory
-            let selectedLocation = 'Filler'; // Default selected location for Heat Stress Monitor
-
-
-            /**
-             * Pads a number with a leading zero if it's less than 10.
-             * @param {number} num - The number to pad.
-             * @returns {string} The padded number as a string.
-             */
-            const padZero = (num) => num.toString().padStart(2, '0');
-
-            /**
-             * Shows a custom message box with a given message.
-             * @param {string} message - The message to display.
-             */
-            const showMessageBox = (message) => {
-                const messageBox = document.createElement('div');
-                messageBox.classList.add('info-message-box', 'fixed', 'p-4', 'rounded-lg', 'shadow-lg', 'bg-blue-100', 'border', 'border-blue-300', 'text-center');
-                messageBox.innerHTML = `
-                    <p class="text-lg font-semibold text-gray-800 mb-4">${message}</p>
-                    <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors" onclick="this.parentElement.remove()">OK</button>
-                `;
-                document.body.appendChild(messageBox);
-            };
-
-            /**
-             * Function to switch between sections.
-             * @param {string} sectionToShowId - The ID of the section to display.
-             */
-            const showSection = (sectionToShowId) => {
-                // Hide all sections
-                timeCalculationSection.classList.add('hidden');
-                agencyRecordSection.classList.add('hidden');
-                chemicalInventorySection.classList.add('hidden');
-                heatStressMonitorSection.classList.add('hidden');
-
-                // Remove active class from all nav buttons
-                navTimeCalcBtn.classList.remove('active');
-                navAgencyRecordBtn.classList.remove('active');
-                navChemicalInventoryBtn.classList.remove('active');
-                navHeatStressMonitorBtn.classList.remove('active');
-
-                // Show the selected section and add active class to its button
-                if (sectionToShowId === 'timeCalculationSection') {
-                    timeCalculationSection.classList.remove('hidden');
-                    navTimeCalcBtn.classList.add('active');
-                } else if (sectionToShowId === 'agencyRecordSection') {
-                    agencyRecordSection.classList.remove('hidden');
-                    navAgencyRecordBtn.classList.add('active');
-                    renderAgencyRecords(); // Ensure records are rendered when switching to this section
-                } else if (sectionToShowId === 'chemicalInventorySection') {
-                    chemicalInventorySection.classList.remove('hidden');
-                    navChemicalInventoryBtn.classList.add('active');
-                    renderChemicalInventory(); // Render chemical inventory when switching
-                    // Ensure a shift button is selected when showing this section
-                    const defaultShiftButton = document.querySelector(`.shift-button[data-shift="${selectedShift}"]`);
-                    if (defaultShiftButton) {
-                        defaultShiftButton.classList.add('selected');
-                    }
-                } else if (sectionToShowId === 'heatStressMonitorSection') {
-                    heatStressMonitorSection.classList.remove('hidden');
-                    navHeatStressMonitorBtn.classList.add('active');
-                    renderHeatStressReadings(); // Render heat stress readings when switching
-                    // Ensure a location button is selected when showing this section
-                    const defaultLocationButton = document.querySelector(`.location-button[data-location="${selectedLocation}"]`);
-                    if (defaultLocationButton) {
-                        defaultLocationButton.classList.add('selected');
-                    }
-                }
-            };
-
-            // Add event listeners for navigation buttons
-            navTimeCalcBtn.addEventListener('click', () => showSection('timeCalculationSection'));
-            navAgencyRecordBtn.addEventListener('click', () => showSection('agencyRecordSection'));
-            navChemicalInventoryBtn.addEventListener('click', () => showSection('chemicalInventorySection'));
-            navHeatStressMonitorBtn.addEventListener('click', () => showSection('heatStressMonitorSection'));
-
-            // Initially show the CIP Time section
-            showSection('timeCalculationSection');
-
-
-            /* --- CIP Time Section Functions --- */
-
-            /**
-             * Updates the display with the current date and time.
-             */
-            const updateCurrentTimeDisplay = () => {
-                const now = new Date();
-                const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-                currentTimeDisplay.textContent = now.toLocaleDateString('en-US', options);
-            };
-
-            // Update current time every second
-            setInterval(updateCurrentTimeDisplay, 1000);
-            updateCurrentTimeDisplay(); // Call once immediately to show current time on load
-
-            /**
-             * Validates an input field to ensure it contains a non-negative number within its min/max range (if max is defined).
-             * @param {HTMLInputElement} inputElement - The input element to validate.
-             * @returns {boolean} True if the input is valid, false otherwise.
-             */
-            const validateInput = (inputElement) => {
-                const value = parseInt(inputElement.value, 10);
-                const min = parseInt(inputElement.min, 10);
-                const max = inputElement.max ? parseInt(inputElement.max, 10) : Infinity;
-
-                // Check if value is a number, not NaN, and within min/max bounds
-                if (isNaN(value) || value < min || value > max) {
-                    inputElement.classList.add('border-red-500', 'ring-red-300'); // Highlight invalid input
-                    return false;
-                } else {
-                    inputElement.classList.remove('border-red-500', 'ring-red-300'); // Remove highlight if valid
-                    return true;
-                }
-            };
-
-            /**
-             * Renders the calculation history to the display in a table format.
-             */
-            const renderHistory = () => {
-                calculationHistoryList.innerHTML = ''; // Clear previous history
-                if (calculationHistory.length === 0) {
-                    noHistoryMessageRow.classList.remove('hidden');
-                    calculationHistoryList.appendChild(noHistoryMessageRow);
-                } else {
-                    noHistoryMessageRow.classList.add('hidden');
-                    calculationHistory.forEach((entry) => {
-                        const historyRow = document.createElement('tr');
-                        historyRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
-                        
-                        historyRow.innerHTML = `
-                            <td class="py-3 px-2 text-left">${entry.option}</td> <!-- Display A, B, C, D -->
-                            <td class="py-3 px-2 text-left">${entry.date}</td>
-                            <td class="py-3 px-2 text-left">${entry.newTime}</td>
-                        `;
-                        calculationHistoryList.appendChild(historyRow);
-                    });
-                }
-            };
-
-            /**
-             * Handles the selection of option buttons.
-             * @param {Event} event - The click event.
-             */
-            const handleOptionButtonClick = (event) => {
-                // Remove 'selected' class from all buttons
-                optionButtons.forEach(button => {
-                    button.classList.remove('selected');
-                });
-                // Add 'selected' class to the clicked button
-                event.currentTarget.classList.add('selected');
-                // Update the selectedOption variable
-                selectedOption = event.currentTarget.dataset.option;
-            };
-
-            // Add event listeners to option buttons
-            optionButtons.forEach(button => {
-                button.addEventListener('click', handleOptionButtonClick);
-            });
-
-            // Initialize the default selected button
-            const defaultButton = document.querySelector(`.option-button[data-option="${selectedOption}"]`);
-            if (defaultButton) {
-                defaultButton.classList.add('selected');
+            function saveHeatStressReadings() {
+                localStorage.setItem('heatStressReadings', JSON.stringify(heatStressReadings));
             }
 
-
-            /**
-             * Handles the calculation of the new time by subtracting duration from 45 hours and adding the difference to current time.
-             */
-            const calculateNewTime = () => {
-                // Hide previous errors
-                inputErrorBox.classList.add('hidden');
-                duplicateErrorBox.classList.add('hidden'); // Hide duplicate error at start of new calculation
-
-                // Validate inputs
-                const isValidHours = validateInput(hoursToSubtractInput);
-                const isValidMinutes = validateInput(minutesToSubtractInput);
-
-                if (!isValidHours || !isValidMinutes) {
-                    inputErrorBox.classList.remove('hidden'); // Show input validation error
-                    return;
-                }
-
-                // Check for duplicate option in history
-                const isDuplicate = calculationHistory.some(entry => entry.option === selectedOption);
-                if (isDuplicate) {
-                    duplicateErrorBox.classList.remove('hidden'); // Show duplicate error
-                    return; // Stop calculation
-                }
-
-                // Get values to subtract
-                const hoursToSubtract = parseInt(hoursToSubtractInput.value, 10);
-                const minutesToSubtract = parseInt(minutesToSubtractInput.value, 10);
-
-                // Fixed reference time: 45 hours and 0 minutes
-                const fixedTotalMinutes = (45 * 60) + 0;
-
-                // User's input in minutes
-                const userInputMinutes = (hoursToSubtract * 60) + minutesToSubtract;
-
-                // Calculate the difference in minutes
-                const differenceInMinutes = fixedTotalMinutes - userInputMinutes;
-
-                // Get current time BEFORE calculation for logging
-                const nowBeforeCalc = new Date();
-
-                // Format the date for CIP entry - ONLY DAY (e.g., "Mon")
-                const currentDateFormatted = nowBeforeCalc.toLocaleDateString('en-US', { weekday: 'short' }); 
-
-
-                // Create a new Date object for calculation to avoid modifying the 'nowBeforeCalc'
-                const calculatedDate = new Date(nowBeforeCalc.getTime()); // Copy current time
-                calculatedDate.setMinutes(calculatedDate.getMinutes() + differenceInMinutes);
-
-                // Format the new time for the simplified output - NO SECONDS
-                const resultOptions = {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true // Use 12-hour format with AM/PM
-                };
-                const newTimeFormatted = calculatedDate.toLocaleString('en-US', resultOptions);
-
-                // Add to history
-                calculationHistory.push({
-                    inputHours: hoursToSubtract,
-                    inputMinutes: minutesToSubtract,
-                    option: selectedOption,
-                    date: currentDateFormatted, // Add the captured date (now only day)
-                    newTime: newTimeFormatted
-                });
-
-                // Sort history by option (A, B, C, D)
-                calculationHistory.sort((a, b) => a.option.localeCompare(b.option));
-
-
-                // Save history to localStorage
-                localStorage.setItem('timeCalcHistory', JSON.stringify(calculationHistory));
-
-                // Render updated history
-                renderHistory();
-
-                // Reset input fields after calculation
-                hoursToSubtractInput.value = ''; // Reset to empty
-                minutesToSubtractInput.value = ''; // Reset to empty
-            };
-
-            /**
-             * Resets the calculation history.
-             */
-            const resetHistory = () => {
-                calculationHistory = []; // Clear the array
-                localStorage.removeItem('timeCalcHistory'); // Clear localStorage
-                renderHistory(); // Re-render to show empty history
-                duplicateErrorBox.classList.add('hidden'); // Hide duplicate error on reset
-            };
-
-            // Add event listener to the calculate button
-            calculateBtn.addEventListener('click', calculateNewTime);
-
-            // Add input event listeners to validate inputs as the user types
-            [hoursToSubtractInput, minutesToSubtractInput].forEach(input => {
-                input.addEventListener('input', () => {
-                    validateInput(input);
-                    inputErrorBox.classList.add('hidden'); // Hide input error when user types
-                });
-            });
-
-            // Add event listener for the reset button
-            resetHistoryBtn.addEventListener('click', resetHistory);
-
-            // Initial render of history when the page loads
-            renderHistory();
-
-
-            /* --- Agency Record Section Functions --- */
-
-            /**
-             * Renders the saved agency records to the display.
-             */
-            const renderAgencyRecords = () => {
-                agencyRecordList.innerHTML = ''; // Clear previous records
-                if (agencyRecords.length === 0) {
-                    noAgencyRecordsMessageRowAgency.classList.remove('hidden'); // Show "No records yet" row
-                    agencyRecordList.appendChild(noAgencyRecordsMessageRowAgency);
-                    undoDeleteRecordBtn.disabled = true; // Disable undo button if no records
+            function loadHeatStressReadings() {
+                const storedReadings = localStorage.getItem('heatStressReadings');
+                if (storedReadings) {
+                    heatStressReadings = JSON.parse(storedReadings);
+                    renderHeatStressReadings();
                 } else {
-                    noAgencyRecordsMessageRowAgency.classList.add('hidden'); // Hide "No records yet" row
-                    agencyRecords.forEach((record, index) => {
-                        const recordRow = document.createElement('tr');
-                        recordRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
-                        
-                        // Original output format for Agency Records: Name, Day, Time, Actions (Line column removed)
-                        recordRow.innerHTML = `
-                            <td class="py-3 px-2 text-left whitespace-normal">${record.name}</td>
-                            <td class="py-3 px-2 text-left">${record.date}</td>
-                            <td class="py-3 px-2 text-left">${record.time}</td>
-                            <td class="py-3 px-2 text-left">
-                                <button class="delete-record-btn" data-index="${index}">
-                                    <i class="fas fa-trash-alt"></i> <!-- Font Awesome bin icon -->
-                                </button>
-                            </td>
-                        `;
-                        agencyRecordList.appendChild(recordRow);
-                    });
-                    // Only enable undo if there was a last action that can be undone
-                    undoDeleteRecordBtn.disabled = (lastStateBeforeActionAgency === null);
+                    showNoHeatStressMessage();
                 }
-
-                // Add event listeners to newly created delete buttons
-                document.querySelectorAll('#agencyRecordList .delete-record-btn').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        const indexToDelete = parseInt(event.target.closest('button').dataset.index, 10); // Use closest to get the button
-                        showConfirmation('agency', 'delete', indexToDelete); // Show confirmation instead of direct delete
-                    });
-                });
-            };
-
-            /**
-             * Handles saving a new agency record.
-             */
-            const saveAgencyRecord = () => {
-                agencyRecordErrorBox.classList.add('hidden'); // Hide previous errors
-
-                const name = agencyNameInput.value.trim();
-                const hour = parseInt(agencyTimeHourInput.value, 10);
-                const minute = parseInt(agencyTimeMinuteInput.value, 10);
-                const ampm = agencyTimeAmPmSelect.value;
-                
-                // Capture current date at the time of saving
-                const now = new Date();
-                const weekday = now.toLocaleDateString('en-US', { weekday: 'short' }); // e.g., "Mon"
-                const month = now.toLocaleDateString('en-US', { month: 'short' });   // e.g., "Aug"
-                const day = padZero(now.getDate());                                  // e.g., "01"
-                const currentDateFormatted = `${weekday} ${day} ${month}`; // Combines to "Mon 01 Aug"
-
-                console.log('Attempting to save Agency Record:');
-                console.log('Name:', name);
-                console.log('Hour:', hour, 'Minute:', minute, 'AM/PM:', ampm);
-                console.log('Date (captured):', currentDateFormatted); // Check if date is populated
-
-                // Basic validation
-                if (!name || isNaN(hour) || hour < 1 || hour > 12 || isNaN(minute) || minute < 0 || minute > 59) {
-                    agencyRecordErrorBox.classList.remove('hidden');
-                    console.error('Validation failed: Missing or invalid input.');
-                    return;
-                }
-                console.log('Validation passed.');
-
-                // Use padZero function here
-                const formattedTime = `${padZero(hour)}:${padZero(minute)} ${ampm}`;
-
-                agencyRecords.push({
-                    name: name,
-                    time: formattedTime,
-                    date: currentDateFormatted // Use the captured current date
-                });
-                console.log('Agency Records array after push:', agencyRecords);
-
-                // Clear input fields after saving
-                agencyNameInput.value = '';
-                agencyTimeHourInput.value = '12'; // Reset to default
-                agencyTimeMinuteInput.value = '00'; // Reset to default
-                agencyTimeAmPmSelect.value = 'AM'; // Reset to default
-
-
-                // Clear last deleted record and disable undo button on new save
-                lastStateBeforeActionAgency = null;
-                lastActionTypeAgency = null;
-                lastDeletedRecordIndexAgency = -1;
-                undoDeleteRecordBtn.disabled = true;
-
-                localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
-                console.log('Saved to localStorage.');
-                renderAgencyRecords(); // Re-render the list
-                console.log('Rendered agency records.');
-            };
-
-            /**
-             * Performs the actual deletion of a specific agency record after confirmation.
-             * @param {number} index - The index of the record to delete.
-             */
-            const performDeleteRecordAgency = (index) => {
-                if (index >= 0 && index < agencyRecords.length) {
-                    // Store the state before this action for undo
-                    lastStateBeforeActionAgency = [...agencyRecords]; // Deep copy
-                    lastActionTypeAgency = 'delete';
-                    lastDeletedRecordIndexAgency = index;
-
-                    // Remove the record from the array
-                    agencyRecords.splice(index, 1);
-                    localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
-                    renderAgencyRecords(); // Re-render the table
-                    undoDeleteRecordBtn.disabled = false; // Enable undo button
-                    console.log('Agency Record deleted. Last state saved for undo.');
-                }
-            };
-
-            /**
-             * Handles undoing the last action for Agency Records.
-             */
-            const handleUndoLastActionAgency = () => {
-                if (lastStateBeforeActionAgency !== null && lastActionTypeAgency !== null) {
-                    agencyRecords = [...lastStateBeforeActionAgency]; // Restore the previous state
-                    localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
-                    renderAgencyRecords();
-
-                    // Clear undo state and disable button
-                    lastStateBeforeActionAgency = null;
-                    lastActionTypeAgency = null;
-                    lastDeletedRecordIndexAgency = -1;
-                    console.log('Agency Record Undo successful. State restored.');
-                }
-            };
-
-            /**
-             * Resets all agency records after confirmation.
-             */
-            const performResetAgencyRecords = () => {
-                // Store the state before this action for undo
-                lastStateBeforeActionAgency = [...agencyRecords]; // Deep copy
-                lastActionTypeAgency = 'reset';
-                lastDeletedRecordIndexAgency = -1; // Not applicable
-
-                agencyRecords = []; // Clear the array
-                localStorage.removeItem('agencyRecords'); // Clear localStorage
-                renderAgencyRecords();
-                undoDeleteRecordBtn.disabled = false; // Enable undo button
-                console.log('All Agency Records reset. Last state saved for undo.');
-            };
-
-            /**
-             * Exports the agency records data to a CSV file.
-             */
-            const exportAgencyRecordsToCsv = () => {
-                if (agencyRecords.length === 0) {
-                    showMessageBox('No agency records to export.');
-                    return;
-                }
-
-                // Define CSV headers
-                const headers = ["Name", "Day", "Time"];
-                
-                // Map data to CSV rows
-                const rows = agencyRecords.map(record => [
-                    `"${record.name.replace(/"/g, '""')}"`, // Escape double quotes within the name
-                    `"${record.date}"`,
-                    `"${record.time}"`
-                ].join(',')); // Join columns with commas
-
-                // Combine headers and rows
-                const csvContent = [headers.join(','), ...rows].join('\n');
-
-                // Create a Blob from the CSV content
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-                // Create a download link and trigger click
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'agency_records.csv';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href); // Clean up the object URL
-            };
-
-            /**
-             * Takes a screenshot of the agency record table and triggers a download.
-             */
-            const takeAgencyScreenshot = () => {
-                // Target only the table element within the history container
-                const targetElement = document.getElementById('agencyRecordTable'); 
-
-                if (agencyRecords.length === 0) {
-                    showMessageBox('No agency records to screenshot. Please add some entries first.');
-                    return;
-                }
-
-                html2canvas(targetElement, {
-                    scale: 2, // Increase scale for better quality
-                    useCORS: true // Important if any content is from other origins
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = 'agency_records.png';
-                    link.href = canvas.toDataURL('image/png');
-                    document.body.appendChild(link); // Append to body to make it clickable
-                    link.click(); // Programmatically click the link to trigger download
-                    document.body.removeChild(link); // Clean up the temporary link
-                }).catch(error => {
-                    console.error('Error taking screenshot:', error);
-                    showMessageBox('Failed to take screenshot. Please try again.');
-                });
-            };
-
-
-            /* --- Chemical Inventory Section Functions --- */
-
-            /**
-             * Handles the selection of shift buttons.
-             * @param {Event} event - The click event.
-             */
-            const handleShiftButtonClick = (event) => {
-                // Remove 'selected' class from all shift buttons
-                shiftButtons.forEach(button => {
-                    button.classList.remove('selected');
-                });
-                // Add 'selected' class to the clicked button
-                event.currentTarget.classList.add('selected');
-                // Update the selectedShift variable
-                selectedShift = event.currentTarget.dataset.shift;
-            };
-
-            // Add event listeners to shift buttons
-            shiftButtons.forEach(button => {
-                button.addEventListener('click', handleShiftButtonClick);
-            });
-
-            // Initialize the default selected shift button
-            const defaultShiftButton = document.querySelector(`.shift-button[data-shift="${selectedShift}"]`);
-            if (defaultShiftButton) {
-                defaultShiftButton.classList.add('selected');
             }
 
-
-            /**
-             * Renders the chemical inventory to the display.
-             */
-            const renderChemicalInventory = () => {
-                chemicalInventoryList.innerHTML = ''; // Clear previous entries
-                if (chemicalInventory.length === 0) {
-                    noChemicalsMessageRow.classList.remove('hidden');
-                    chemicalInventoryList.appendChild(noChemicalsMessageRow);
-                } else {
-                    noChemicalsMessageRow.classList.add('hidden');
-
-                    for (let i = 0; i < chemicalInventory.length; i++) {
-                        const chemical = chemicalInventory[i];
-                        const chemicalRow = document.createElement('tr');
-                        chemicalRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
-
-                        let dateCellHtml = '';
-                        let shiftCellHtml = '';
-
-                        // Check if this is the first row or if the date/shift combination is different from the previous row
-                        const isNewGroup = (i === 0) ||
-                                           (chemical.date !== chemicalInventory[i-1].date) ||
-                                           (chemical.shift !== chemicalInventory[i-1].shift);
-
-                        if (isNewGroup) {
-                            let dateSpan = 1;
-                            let shiftSpan = 1;
-
-                            // Calculate rowspan for Date and Shift by looking ahead
-                            for (let j = i + 1; j < chemicalInventory.length; j++) {
-                                if (chemicalInventory[j].date === chemical.date && chemicalInventory[j].shift === chemical.shift) {
-                                    dateSpan++;
-                                    shiftSpan++;
-                                } else {
-                                    break; // Stop if date or shift changes
-                                }
-                            }
-                            // Add align-middle for vertical centering
-                            dateCellHtml = `<td class="py-3 px-2 text-left align-middle" rowspan="${dateSpan}">${chemical.date}</td>`;
-                            shiftCellHtml = `<td class="py-3 px-2 text-left align-middle" rowspan="${shiftSpan}">${chemical.shift}</td>`;
-                        }
-                        
-                        chemicalRow.innerHTML = `
-                            ${dateCellHtml}
-                            ${shiftCellHtml}
-                            <td class="py-3 px-2 text-left whitespace-normal">${chemical.name}</td>
-                            <td class="py-3 px-2 text-left">${chemical.quantity}</td>
-                            <td class="py-3 px-2 text-left">
-                                <button class="delete-record-btn" data-index="${i}">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </td>
-                        `;
-                        chemicalInventoryList.appendChild(chemicalRow);
-                    }
-                }
-
-                // Add event listeners to newly created delete buttons for chemicals
-                document.querySelectorAll('#chemicalInventoryList .delete-record-btn').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        const indexToDelete = parseInt(event.target.closest('button').dataset.index, 10);
-                        showConfirmation('chemical', 'delete', indexToDelete);
-                    });
-                });
-            };
-
-            /**
-             * Handles adding a new chemical entry.
-             */
-            const addChemical = () => {
-                chemicalInventoryErrorBox.classList.add('hidden'); // Hide previous errors
-                chemicalInventoryErrorBox.textContent = ''; // Clear previous message
-
-                const name = chemicalNameSelect.value; // Get value from select
-                const quantity = parseFloat(chemicalQuantityInput.value);
-                const shift = selectedShift; // Get value from selectedShift variable
-
-                // Get current date for the entry
-                const now = new Date();
-                const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
-                const month = now.toLocaleDateString('en-US', { month: 'short' });
-                const day = padZero(now.getDate());
-                const yearShort = now.getFullYear().toString().slice(-2); // Get last two digits of year
-                const currentDateFormatted = `${weekday} ${day} ${month}-${yearShort}`; // e.g., "Wed 01 Aug-25"
-
-
-                // Basic validation
-                if (!name || isNaN(quantity) || quantity < 0 || !shift) { 
-                    chemicalInventoryErrorBox.classList.remove('hidden');
-                    chemicalInventoryErrorBox.textContent = 'Please select chemical, shift, and enter a valid quantity.';
-                    return;
-                }
-
-                // NEW VALIDATION: Check if data for a different shift exists for the current date
-                const conflictingShiftEntry = chemicalInventory.find(entry =>
-                    entry.date === currentDateFormatted && entry.shift !== shift
-                );
-
-                if (conflictingShiftEntry) {
-                    chemicalInventoryErrorBox.classList.remove('hidden');
-                    chemicalInventoryErrorBox.textContent = `An entry already exists for ${currentDateFormatted} on Shift ${conflictingShiftEntry.shift}. Please reset all chemicals to add entries for a different shift on this date.`;
-                    return;
-                }
-
-                // Existing validation: Check for exact duplicate entry (same date, shift, chemical name)
-                const isExactDuplicate = chemicalInventory.some(entry =>
-                    entry.date === currentDateFormatted &&
-                    entry.shift === shift &&
-                    entry.name === name
-                );
-
-                if (isExactDuplicate) {
-                    chemicalInventoryErrorBox.classList.remove('hidden');
-                    chemicalInventoryErrorBox.textContent = 'This chemical entry already exists for this date and shift.';
-                    return;
-                }
-
-
-                chemicalInventory.push({
-                    date: currentDateFormatted, // Add date
-                    shift: shift, // Add shift
-                    name: name,
-                    quantity: quantity
-                });
-
-                // Clear input fields
-                chemicalNameSelect.value = ''; // Reset chemical dropdown
-                chemicalQuantityInput.value = '';
-                // No need to reset shift buttons, as one is always selected by default
-
-                localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
-                renderChemicalInventory();
-            };
-
-            /**
-             * Performs the actual deletion of a specific chemical record after confirmation.
-             * @param {number} index - The index of the record to delete.
-             */
-            const performDeleteChemical = (index) => {
-                if (index >= 0 && index < chemicalInventory.length) {
-                    // Store the state before this action for undo
-                    lastStateBeforeActionChemical = [...chemicalInventory];
-                    lastActionTypeChemical = 'delete';
-                    lastDeletedRecordIndexChemical = index;
-
-                    chemicalInventory.splice(index, 1);
-                    localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
-                    renderChemicalInventory();
-                }
-            };
-
-            /**
-             * Handles undoing the last action for Chemical Inventory.
-             */
-            const handleUndoLastActionChemical = () => {
-                if (lastStateBeforeActionChemical !== null && lastActionTypeChemical !== null) {
-                    chemicalInventory = [...lastStateBeforeActionChemical]; // Restore the previous state
-                    localStorage.setItem('chemicalInventory', JSON.stringify(chemicalInventory));
-                    renderChemicalInventory();
-
-                    // Clear undo state
-                    lastStateBeforeActionChemical = null;
-                    lastActionTypeChemical = null;
-                    lastDeletedRecordIndexChemical = -1;
-                    console.log('Chemical Inventory Undo successful. State restored.');
-                }
-            };
-
-            /**
-             * Resets all chemical records after confirmation.
-             */
-            const performResetChemicalInventory = () => {
-                // Store the state before this action for undo
-                lastStateBeforeActionChemical = [...chemicalInventory];
-                lastActionTypeChemical = 'reset';
-                lastDeletedRecordIndexChemical = -1; // Not applicable
-
-                chemicalInventory = [];
-                localStorage.removeItem('chemicalInventory');
-                renderChemicalInventory();
-            };
-
-            /**
-             * Takes a screenshot of the chemical inventory table and triggers a download.
-             */
-            const takeChemicalScreenshot = () => {
-                // Target only the table element within the history container
-                const targetElement = document.getElementById('chemicalInventoryTable'); 
-
-                if (chemicalInventory.length === 0) {
-                    showMessageBox('No chemical inventory to screenshot. Please add some entries first.');
-                    return;
-                }
-
-                html2canvas(targetElement, {
-                    scale: 2, // Increase scale for better quality
-                    useCORS: true // Important if any content is from other origins
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = 'chemical_inventory.png';
-                    link.href = canvas.toDataURL('image/png');
-                    document.body.appendChild(link); // Append to body to make it clickable
-                    link.click(); // Programmatically click the link to trigger download
-                    document.body.removeChild(link); // Clean up the temporary link
-                }).catch(error => {
-                    console.error('Error taking screenshot:', error);
-                    showMessageBox('Failed to take screenshot. Please try again.');
-                });
-            };
-
-            /**
-             * Exports the chemical inventory data to a CSV file.
-             */
-            const exportChemicalsToCsv = () => {
-                if (chemicalInventory.length === 0) {
-                    showMessageBox('No chemical entries to export.');
-                    return;
-                }
-
-                // Define CSV headers
-                const headers = ["Date", "Shift", "Chemical", "Quantity"];
-                
-                // Map data to CSV rows
-                const rows = chemicalInventory.map(entry => [
-                    `"${entry.date}"`, // Enclose in quotes to handle commas if any in date format
-                    `"${entry.shift}"`,
-                    `"${entry.name.replace(/"/g, '""')}"`, // Escape double quotes within the name
-                    entry.quantity
-                ].join(',')); // Join columns with commas
-
-                // Combine headers and rows
-                const csvContent = [headers.join(','), ...rows].join('\n');
-
-                // Create a Blob from the CSV content
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-                // Create a download link and trigger click
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'chemical_inventory.csv';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href); // Clean up the object URL
-            };
-
-            /* --- Heat Stress Monitor Functions (UPDATED) --- */
-
-            /**
-             * Handles the selection of location buttons.
-             * @param {Event} event - The click event.
-             */
-            const handleLocationButtonClick = (event) => {
-                // Remove 'selected' class from all location buttons
-                locationButtons.forEach(button => {
-                    button.classList.remove('selected');
-                });
-                // Add 'selected' class to the clicked button
-                event.currentTarget.classList.add('selected');
-                // Update the selectedLocation variable
-                selectedLocation = event.currentTarget.dataset.location;
-            };
-
-            // Add event listeners to location buttons
-            locationButtons.forEach(button => {
-                button.addEventListener('click', handleLocationButtonClick);
-            });
-
-            // Initialize the default selected location button
-            const defaultLocationButton = document.querySelector(`.location-button[data-location="${selectedLocation}"]`);
-            if (defaultLocationButton) {
-                defaultLocationButton.classList.add('selected');
-            }
-
-            /**
-             * Renders the heat stress readings to the display.
-             */
-            const renderHeatStressReadings = () => {
-                heatStressList.innerHTML = ''; // Clear previous entries
+            function renderHeatStressReadings() {
+                heatStressList.innerHTML = ''; // Clear existing entries
                 if (heatStressReadings.length === 0) {
-                    noHeatStressMessageRow.classList.remove('hidden');
-                    heatStressList.appendChild(noHeatStressMessageRow);
-                } else {
-                    noHeatStressMessageRow.classList.add('hidden');
-                    heatStressReadings.forEach((reading, index) => {
-                        const readingRow = document.createElement('tr');
-                        readingRow.classList.add('border-b', 'border-gray-200', 'hover:bg-gray-100');
-                        
-                        // Removed 'Date' and 'Actions' columns from rendering
-                        readingRow.innerHTML = `
-                            <td class="py-3 px-2 text-left">${reading.time}</td>
-                            <td class="py-3 px-2 text-left">${reading.location}</td>
-                            <td class="py-3 px-2 text-left">${reading.temperature}</td>
-                            <td class="py-3 px-2 text-left">${reading.rh}</td>
-                            <td class="py-3 px-2 text-left">${reading.wbgt}</td>
-                        `;
-                        heatStressList.appendChild(readingRow);
-                    });
+                    showNoHeatStressMessage();
+                    return;
                 }
-                // Removed event listeners for delete buttons as the column is gone
-            };
+                hideNoHeatStressMessage();
+                heatStressReadings.forEach((reading) => {
+                    const newRow = heatStressList.insertRow();
+                    newRow.className = "bg-white border-b border-gray-200 hover:bg-gray-50";
 
-            /**
-             * Records a new heat stress reading.
-             */
-            const recordHeatStressReading = () => {
-                heatStressErrorBox.classList.add('hidden'); // Hide previous errors
-                heatStressErrorBox.textContent = ''; // Clear previous message
+                    newRow.insertCell().textContent = reading.time;
+                    newRow.insertCell().textContent = reading.location;
+                    newRow.insertCell().textContent = reading.temperature.toFixed(1); // Format to 1 decimal place
+                    newRow.insertCell().textContent = reading.rh;
+                    newRow.insertCell().textContent = reading.wbgt.toFixed(1); // Format to 1 decimal place
+                });
+            }
 
-                const location = selectedLocation;
+            function showNoHeatStressMessage() {
+                if (noHeatStressMessageRow) {
+                    noHeatStressMessageRow.classList.remove('hidden');
+                }
+            }
+
+            function hideNoHeatStressMessage() {
+                if (noHeatStressMessageRow) {
+                    noHeatStressMessageRow.classList.add('hidden');
+                }
+            }
+
+            locationButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    locationButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                    selectedLocation = button.dataset.location;
+                });
+            });
+
+            recordHeatStressBtn.addEventListener('click', () => {
                 const temperature = parseFloat(heatStressTemperatureInput.value);
-                const rh = parseFloat(heatStressRHInput.value);
+                const rh = parseInt(heatStressRHInput.value);
                 const wbgt = parseFloat(heatStressWBGTInput.value);
 
-                // Get current date and time
-                const now = new Date();
-                const dateFormatted = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: '2-digit' }); // e.g., "Wed Aug 01, 25"
-                const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); // e.g., "03:30:00 PM"
-
-
-                // Basic validation for all three new inputs
-                if (!location || isNaN(temperature) || isNaN(rh) || isNaN(wbgt) || temperature < -50 || rh < 0 || rh > 100 || wbgt < -50) { // Added basic range validation
-                    heatStressErrorBox.classList.remove('hidden');
-                    heatStressErrorBox.textContent = 'Please select a location and enter valid numeric values for Temperature, RH% (0-100), and WBGT.';
+                if (!selectedLocation || isNaN(temperature) || isNaN(rh) || isNaN(wbgt) || rh < 0 || rh > 100) {
+                    showError(heatStressErrorBox, "Please select a location and enter valid numbers for Temperature, RH% (0-100), and WBGT.");
                     return;
+                } else {
+                    hideError(heatStressErrorBox);
                 }
 
-                heatStressReadings.push({
-                    date: dateFormatted, // Still store date for CSV export, even if not displayed
-                    time: timeFormatted,
-                    location: location,
-                    temperature: temperature,
-                    rh: rh,
-                    wbgt: wbgt
-                });
+                const now = new Date();
+                const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-                // Clear input fields
+                const newReading = { time, location: selectedLocation, temperature, rh, wbgt };
+                heatStressReadings.push(newReading);
+                saveHeatStressReadings();
+                renderHeatStressReadings();
+
+                // Clear form fields
                 heatStressTemperatureInput.value = '';
                 heatStressRHInput.value = '';
                 heatStressWBGTInput.value = '';
+                locationButtons.forEach(btn => btn.classList.remove('selected'));
+                selectedLocation = null;
 
-                localStorage.setItem('heatStressReadings', JSON.stringify(heatStressReadings));
-                renderHeatStressReadings();
-            };
+                showMessageBox("Heat stress reading recorded!", "success");
+            });
 
-            /**
-             * Resets all heat stress readings after confirmation.
-             */
-            const performResetHeatStressReadings = () => {
-                heatStressReadings = [];
-                localStorage.removeItem('heatStressReadings');
-                renderHeatStressReadings();
-            };
+            resetHeatStressBtn.addEventListener('click', () => {
+                showConfirm("Are you sure you want to reset ALL heat stress readings? This cannot be undone.", () => {
+                    heatStressReadings = [];
+                    saveHeatStressReadings();
+                    renderHeatStressReadings();
+                    showMessageBox("All heat stress readings have been reset.", "success");
+                });
+            });
 
-            /**
-             * Exports the heat stress readings data to a CSV file.
-             */
-            const exportHeatStressToCsv = () => {
+            exportHeatStressCsvBtn.addEventListener('click', () => {
                 if (heatStressReadings.length === 0) {
-                    showMessageBox('No heat stress readings to export.');
+                    showMessageBox("No heat stress readings to export.", "warning");
                     return;
                 }
-
-                // Define CSV headers including the new metrics
-                const headers = ["Date", "Time", "Location", "Temperature (°C)", "RH (%)", "WBGT (°C)"];
-                
-                // Map data to CSV rows, ensuring all new metrics are included
-                const rows = heatStressReadings.map(entry => [
-                    `"${entry.date}"`,
-                    `"${entry.time}"`,
-                    `"${entry.location.replace(/"/g, '""')}"`,
-                    entry.temperature,
-                    entry.rh,
-                    entry.wbgt
-                ].join(','));
-
-                // Combine headers and rows
-                const csvContent = [headers.join(','), ...rows].join('\n');
-
-                // Create a Blob from the CSV content
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-                // Create a download link and trigger click
+                const headers = ["Time", "Location", "Temperature (°C)", "RH (%)", "WBGT (°C)"];
+                const csvRows = [
+                    headers.join(','),
+                    ...heatStressReadings.map(reading => `${reading.time},${reading.location},${reading.temperature.toFixed(1)},${reading.rh},${reading.wbgt.toFixed(1)}`)
+                ];
+                const csvString = csvRows.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = 'heat_stress_readings.csv';
-                document.body.appendChild(link);
                 link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-            };
+                showMessageBox("Heat stress readings exported to CSV!", "success");
+            });
 
-            /**
-             * Takes a screenshot of the heat stress readings table and triggers a download.
-             */
-            const takeHeatStressScreenshot = () => {
-                // Target only the table element within the history container
-                const targetElement = document.getElementById('heatStressTable'); 
-
-                if (heatStressReadings.length === 0) {
-                    showMessageBox('No heat stress readings to screenshot. Please add some entries first.');
-                    return;
-                }
-
-                html2canvas(targetElement, {
-                    scale: 2, // Increase scale for better quality
-                    useCORS: true // Important if any content is from other origins
+            takeHeatStressScreenshotBtn.addEventListener('click', () => {
+                html2canvas(heatStressMonitorSection, {
+                    scale: 2,
+                    useCORS: true
                 }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
                     const link = document.createElement('a');
-                    link.download = 'heat_stress_readings.png';
-                    link.href = canvas.toDataURL('image/png');
-                    document.body.appendChild(link); // Append to body to make it clickable
-                    link.click(); // Programmatically click the link to trigger download
-                    document.body.removeChild(link); // Clean up the temporary link
-                }).catch(error => {
-                    console.error('Error taking screenshot:', error);
-                    showMessageBox('Failed to take screenshot. Please try again.');
-                });
-            };
-
-
-            /* --- Generic Confirmation Dialog Functions --- */
-            /**
-             * Shows the generic confirmation dialog.
-             * @param {string} section - 'agency', 'chemical', or 'heatStress'
-             * @param {string} actionType - 'delete' or 'reset'
-             * @param {number} [index] - Optional: index of the item to delete for 'delete' action.
-             */
-            const showConfirmation = (section, actionType, index = -1) => {
-                pendingActionSection = section;
-                pendingActionType = actionType;
-                pendingIndex = index;
-
-                if (actionType === 'delete') {
-                    confirmMessageText.textContent = `Are you sure you want to delete this record?`;
-                } else if (actionType === 'reset') {
-                    if (section === 'agency') {
-                        confirmMessageText.textContent = `Are you sure you want to reset all agency records? This action cannot be undone.`;
-                    } else if (section === 'chemical') {
-                        confirmMessageText.textContent = `Are you sure you want to reset all chemical inventory? This action cannot be undone.`;
-                    } else if (section === 'heatStress') {
-                        confirmMessageText.textContent = `Are you sure you want to reset all heat stress readings? This action cannot be undone.`;
-                    }
-                }
-                confirmMessageBox.classList.remove('hidden');
-            };
-
-            /**
-             * Executes the confirmed action based on pendingActionSection and pendingActionType.
-             */
-            const executeConfirmedAction = () => {
-                confirmMessageBox.classList.add('hidden'); // Hide the confirmation box
-
-                if (pendingActionSection === 'agency') {
-                    if (pendingActionType === 'delete' && pendingIndex !== -1) {
-                        performDeleteRecordAgency(pendingIndex);
-                    } else if (pendingActionType === 'reset') {
-                        performResetAgencyRecords();
-                    }
-                } else if (pendingActionSection === 'chemical') {
-                    if (pendingActionType === 'delete' && pendingIndex !== -1) {
-                        performDeleteChemical(pendingIndex);
-                    } else if (pendingActionType === 'reset') {
-                        performResetChemicalInventory();
-                    }
-                } else if (pendingActionSection === 'heatStress') {
-                    if (pendingActionType === 'delete' && pendingIndex !== -1) {
-                        // For heat stress, direct delete is fine as there's no undo for single items yet.
-                        // heatStressReadings.splice(pendingIndex, 1); // This line was removed as per previous request to remove 'Actions' column
-                        // localStorage.setItem('heatStressReadings', JSON.stringify(heatStressReadings));
-                        // renderHeatStressReadings();
-                    } else if (pendingActionType === 'reset') {
-                        performResetHeatStressReadings();
-                    }
-                }
-                // Reset pending state
-                pendingActionSection = null;
-                pendingActionType = null;
-                pendingIndex = -1;
-            };
-
-            /**
-             * Cancels the pending action and hides the confirmation dialog.
-             */
-            const cancelConfirmedAction = () => {
-                confirmMessageBox.classList.add('hidden'); // Hide the confirmation box
-                // Reset pending state
-                pendingActionSection = null;
-                pendingActionType = null;
-                pendingIndex = -1;
-            };
-
-            // Add event listeners for Agency Record section
-            saveAgencyRecordBtn.addEventListener('click', saveAgencyRecord);
-            resetAgencyRecordsBtnAgency.addEventListener('click', () => showConfirmation('agency', 'reset'));
-            undoDeleteRecordBtn.addEventListener('click', handleUndoLastActionAgency);
-            exportAgencyRecordsCsvBtn.addEventListener('click', exportAgencyRecordsToCsv);
-            takeAgencyScreenshotBtn.addEventListener('click', takeAgencyScreenshot);
-
-
-            // Add event listeners for Chemical Inventory section
-            addChemicalBtn.addEventListener('click', addChemical);
-            resetChemicalInventoryBtn.addEventListener('click', () => showConfirmation('chemical', 'reset'));
-            takeChemicalScreenshotBtn.addEventListener('click', takeChemicalScreenshot);
-            exportChemicalsCsvBtnChem.addEventListener('click', exportChemicalsToCsv);
-
-
-            // Add event listeners for Heat Stress Monitor section (UPDATED)
-            recordHeatStressBtn.addEventListener('click', recordHeatStressReading);
-            resetHeatStressBtn.addEventListener('click', () => showConfirmation('heatStress', 'reset'));
-            exportHeatStressCsvBtn.addEventListener('click', exportHeatStressToCsv);
-            takeHeatStressScreenshotBtn.addEventListener('click', takeHeatStressScreenshot);
-
-            // Auto-tabbing for Heat Stress inputs
-            heatStressTemperatureInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Tab' || event.key === 'Enter') {
-                    event.preventDefault(); // Prevent default tab/enter behavior
-                    heatStressRHInput.focus();
-                }
-            });
-
-            heatStressRHInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Tab' || event.key === 'Enter') {
-                    event.preventDefault(); // Prevent default tab/enter behavior
-                    heatStressWBGTInput.focus();
-                }
-            });
-
-            heatStressWBGTInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Tab' || event.key === 'Enter') {
-                    event.preventDefault(); // Prevent default tab/enter behavior
-                    recordHeatStressBtn.focus(); // Move focus to the "Record Reading" button
-                }
-            });
-
-
-            // Event listeners for the generic confirmation dialog buttons
-            confirmYesBtn.addEventListener('click', executeConfirmedAction);
-            confirmNoBtn.addEventListener('click', cancelConfirmedAction);
-
-            // Add event listener for the take screenshot button in CIP Time
-            takeTimeCalcScreenshotBtn.addEventListener('click', () => {
-                const targetElement = document.getElementById('calculationHistoryTable');
-
-                if (calculationHistory.length === 0) {
-                    showMessageBox('No calculation history to screenshot. Please add some entries first.');
-                    return;
-                }
-
-                html2canvas(targetElement, {
-                    scale: 2, // Increase scale for better quality
-                    useCORS: true // Important if any content is from other origins
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = 'calculation_history.png';
-                    link.href = canvas.toDataURL('image/png');
-                    document.body.appendChild(link);
+                    link.download = 'Heat_Stress_Screenshot.png';
+                    link.href = imgData;
                     link.click();
-                    document.body.removeChild(link);
+                    showMessageBox("Screenshot saved!", "success");
                 }).catch(error => {
                     console.error('Error taking screenshot:', error);
-                    showMessageBox('Failed to take screenshot. Please try again.');
+                    showMessageBox("Failed to take screenshot.", "error");
                 });
             });
-
-            // Auto-tabbing and Enter key handling for hoursToSubtract field
-            hoursToSubtractInput.addEventListener('input', () => {
-                // Auto-tab on two digits
-                if (hoursToSubtractInput.value.length === 2 && !isNaN(hoursToSubtractInput.value)) {
-                    minutesToSubtractInput.focus();
-                }
-            });
-
-            hoursToSubtractInput.addEventListener('keydown', (event) => {
-                // Tab on Enter key press, regardless of digit count (1 or 2)
-                if (event.key === 'Enter') {
-                    event.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
-                    minutesToSubtractInput.focus();
-                }
-            });
-
-            // Auto-tabbing and Enter key handling for minutesToSubtract field
-            minutesToSubtractInput.addEventListener('input', () => {
-                // Auto-tab on two digits
-                if (minutesToSubtractInput.value.length === 2 && !isNaN(minutesToSubtractInput.value)) {
-                    calculateBtn.focus(); // Move focus to the Calculate button
-                }
-            });
-
-            minutesToSubtractInput.addEventListener('keydown', (event) => {
-                // Tab on Enter key press, regardless of digit count (1 or 2)
-                if (event.key === 'Enter') {
-                    event.preventDefault(); // Prevent default Enter key behavior
-                    calculateBtn.focus(); // Move focus to the Calculate button
-                }
-            });
-
-
-            // Initial render of all sections when page loads
-            renderAgencyRecords();
-            renderChemicalInventory();
-            renderHeatStressReadings();
         });
     </script>
 </body>
