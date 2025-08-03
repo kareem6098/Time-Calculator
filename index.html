@@ -568,6 +568,7 @@
             // Confirmation message box elements
             const confirmMessageBox = document.getElementById('confirmMessageBox');
             const confirmMessageText = document.getElementById('confirmMessageText');
+            // FIX: Corrected IDs for confirm buttons
             const confirmYesBtn = document.getElementById('confirmYesBtn');
             const confirmNoBtn = document.getElementById('confirmNoBtn');
 
@@ -803,22 +804,18 @@
                 // Get current time BEFORE calculation for logging
                 const nowBeforeCalc = new Date();
 
-                // Format the date for CIP entry
-                const weekday = nowBeforeCalc.toLocaleDateString('en-US', { weekday: 'short' }); // e.g., "Mon"
-                const month = nowBeforeCalc.toLocaleDateString('en-US', { month: 'short' });   // e.g., "Aug"
-                const day = padZero(nowBeforeCalc.getDate());                                  // e.g., "01"
-                const currentDateFormatted = `${weekday} ${day} ${month}`; // Combines to "Mon 01 Aug"
+                // Format the date for CIP entry - ONLY DAY (e.g., "Mon")
+                const currentDateFormatted = nowBeforeCalc.toLocaleDateString('en-US', { weekday: 'short' }); 
 
 
                 // Create a new Date object for calculation to avoid modifying the 'nowBeforeCalc'
                 const calculatedDate = new Date(nowBeforeCalc.getTime()); // Copy current time
                 calculatedDate.setMinutes(calculatedDate.getMinutes() + differenceInMinutes);
 
-                // Format the new time for the simplified output
+                // Format the new time for the simplified output - NO SECONDS
                 const resultOptions = {
                     hour: '2-digit',
                     minute: '2-digit',
-                    second: '2-digit',
                     hour12: true // Use 12-hour format with AM/PM
                 };
                 const newTimeFormatted = calculatedDate.toLocaleString('en-US', resultOptions);
@@ -828,7 +825,7 @@
                     inputHours: hoursToSubtract,
                     inputMinutes: minutesToSubtract,
                     option: selectedOption,
-                    date: currentDateFormatted, // Add the captured date
+                    date: currentDateFormatted, // Add the captured date (now only day)
                     newTime: newTimeFormatted
                 });
 
