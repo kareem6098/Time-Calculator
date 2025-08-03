@@ -417,19 +417,19 @@
                 <!-- New Input Fields for Temperature, RH%, WBGT -->
                 <div class="flex flex-col">
                     <label for="heatStressTemperature" class="block text-lg font-semibold text-orange-700 mb-2">Temperature (°C):</label>
-                    <input type="number" id="heatStressTemperature" placeholder="e.g., 25.0" step="0.1"
+                    <input type="number" id="heatStressTemperature" placeholder="e.g., 25.0" step="0.1" inputmode="decimal" pattern="[0-9]*"
                            class="p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
                 </div>
 
                 <div class="flex flex-col">
                     <label for="heatStressRH" class="block text-lg font-semibold text-orange-700 mb-2">RH (%):</label>
-                    <input type="number" id="heatStressRH" placeholder="e.g., 60" min="0" max="100"
+                    <input type="number" id="heatStressRH" placeholder="e.g., 60" min="0" max="100" inputmode="decimal" pattern="[0-9]*"
                            class="p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
                 </div>
 
                 <div class="flex flex-col">
                     <label for="heatStressWBGT" class="block text-lg font-semibold text-orange-700 mb-2">WBGT (°C):</label>
-                    <input type="number" id="heatStressWBGT" placeholder="e.g., 28.5" step="0.1"
+                    <input type="number" id="heatStressWBGT" placeholder="e.g., 28.5" step="0.1" inputmode="decimal" pattern="[0-9]*"
                            class="p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-lg font-medium text-gray-700 bg-white shadow-sm">
                 </div>
 
@@ -1005,7 +1005,7 @@
                 if (lastStateBeforeActionAgency !== null && lastActionTypeAgency !== null) {
                     agencyRecords = [...lastStateBeforeActionAgency]; // Restore the previous state
                     localStorage.setItem('agencyRecords', JSON.stringify(agencyRecords));
-                    renderAgencyRecords(); // Re-render the table
+                    renderAgencyRecords();
 
                     // Clear undo state and disable button
                     lastStateBeforeActionAgency = null;
@@ -1689,7 +1689,7 @@
                 });
             });
 
-            // NEW: Auto-tabbing and Enter key handling for hoursToSubtract field
+            // Auto-tabbing and Enter key handling for hoursToSubtract field
             hoursToSubtractInput.addEventListener('input', () => {
                 // Auto-tab on two digits
                 if (hoursToSubtractInput.value.length === 2 && !isNaN(hoursToSubtractInput.value)) {
@@ -1705,7 +1705,7 @@
                 }
             });
 
-            // NEW: Auto-tabbing and Enter key handling for minutesToSubtract field
+            // Auto-tabbing and Enter key handling for minutesToSubtract field
             minutesToSubtractInput.addEventListener('input', () => {
                 // Auto-tab on two digits
                 if (minutesToSubtractInput.value.length === 2 && !isNaN(minutesToSubtractInput.value)) {
